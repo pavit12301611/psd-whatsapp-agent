@@ -41,7 +41,10 @@ export async function incoming(
       phoneJid.exec(k.remoteJidAlt)?.[1] ??
       phoneJid.exec(await resolveLid(jid))?.[1];
   }
-  if (pn !== tester) return;
+  // The mobile UI explicitly opts in to all *incoming* personal chats.
+  if (tester === "all-direct") {
+    if (!phoneJid.test(jid) && !lidJid.test(jid)) return;
+  } else if (pn !== tester) return;
   return { id: k.id, jid, text: text.trim().slice(0, 2000) };
 }
 

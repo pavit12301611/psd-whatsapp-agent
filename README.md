@@ -1,6 +1,6 @@
 # Mimi · phone-powered voice desk
 
-**Chat-first?** See the [on-phone linked-device chat pilot](chat/README.md). It does not use the voice APK or notification reader.
+**Standalone chat APK (no Termux):** [Download Mimi Chat Desk](releases/Mimi-Chat-Desk.apk) · [Pairing and in-app mode controls](chat-android/README.md). The [Termux pilot](chat/README.md) remains optional. The sections below describe the older **voice-link** APK.
 
 A sideloadable Android prototype for Samsung A53 5G and other Android 9+ phones. It offers **a live AI voice conversation via a link**, not interception or auto-answer of WhatsApp calls. No Meta Cloud API, root, Shizuku, account linking, public phone IP or always-on application server. **The phone must be online to send an invite.** Hosting a few public static files over HTTPS is still required. Google's servers process the live audio; this is not an offline model. Provider availability, terms, quotas and charges apply.
 
