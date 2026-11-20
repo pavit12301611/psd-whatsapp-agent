@@ -12,6 +12,10 @@ final class Policy {
     );
   }
 
+  static boolean group(boolean hasFlag, boolean groupFlag, boolean titled) {
+    return hasFlag ? groupFlag : titled;
+  }
+
   static boolean fresh(long time, long now) {
     return time <= now + 5000 && time >= now - 120000;
   }

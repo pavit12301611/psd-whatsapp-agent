@@ -18,6 +18,9 @@ public class PolicyTest {
           (unknown || !mode.equals("Available"))
         ) throw new AssertionError(mode);
       }
+    if (Policy.group(true, false, true) || !Policy.group(true, true, false)
+      || !Policy.group(false, false, true) || Policy.group(false, false, false))
+      throw new AssertionError("Conversation group classification");
     if (
       Policy.fresh(1, 200000) ||
       Policy.fresh(200000, 1) ||

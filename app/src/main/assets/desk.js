@@ -59,6 +59,7 @@ function modal(t, b) {
   $("dialog").showModal();
 }
 function act(k, arg) {
+  if (k === "refresh") return render();
   if (k === "mode") {
     if (native) native.mode(arg);
     else localStorage.setItem("mode", arg);
@@ -152,7 +153,7 @@ function render() {
         "Connections",
         "Your keys, permissions and invite settings.",
       ) +
-      `<div class="sectionhead"><h2>Service configuration</h2></div><div class="panel">${row("key-round", "Provider keys & invite page", `${s.gemini ? "Gemini configured" : "Gemini required"} · ${s.groq ? "Groq configured" : "Groq optional"}`, "setup")}${row("radio", "Notification access", s.access ? "Connected" : "Allow Mimi to reply to WhatsApp Business messages", "access")}${row("users", "Contacts access", s.contacts ? "Granted" : "Needed for unsaved-number detection", "contacts")}</div><div class="sectionhead"><h2>Device activity</h2></div><div class="panel"><div class="empty">${esc(s.status)}</div></div><div class="sectionhead"><h2>Privacy</h2></div><div class="panel">${row("notebook-text", "Clear saved briefs", "Erase the inbox on this phone", "clear")}</div>`;
+      `<div class="sectionhead"><h2>Service configuration</h2></div><div class="panel">${row("key-round", "Provider keys & invite page", `${s.gemini ? "Gemini configured" : "Gemini required"} · ${s.groq ? "Groq configured" : "Groq optional"}`, "setup")}${row("radio", "Notification access", s.access ? (s.bound ? "Granted · Listener connected" : "Granted · Listener not connected") : "Allow Mimi to reply to WhatsApp Business messages", "access")}${row("users", "Contacts access", s.contacts ? "Granted" : "Needed for unsaved-number detection", "contacts")}</div><div class="sectionhead"><h2>Device activity</h2><button class="link" data-c="refresh">Refresh</button></div><div class="panel"><div class="empty"><strong>Last WhatsApp Business notification</strong><p>${s.lastSeen ? esc(new Date(s.lastSeen).toLocaleString()) : "None seen yet"}</p>${esc(s.status)}</div></div><div class="sectionhead"><h2>Privacy</h2></div><div class="panel">${row("notebook-text", "Clear saved briefs", "Erase the inbox on this phone", "clear")}</div>`;
 }
 document.addEventListener("click", (e) => {
   const b = e.target.closest("button");

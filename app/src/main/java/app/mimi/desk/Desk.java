@@ -89,6 +89,8 @@ public class Desk extends Activity {
           s.enabled(),
           "access",
           access(),
+          "bound", Listener.connected,
+          "lastSeen", s.p.getLong("lastSeen", 0),
           "contacts",
           contacts(),
           "ready",

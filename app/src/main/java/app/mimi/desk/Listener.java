@@ -26,21 +26,28 @@ public class Listener extends NotificationListenerService {
     new ThreadPoolExecutor.DiscardPolicy()
   );
 
+  static volatile boolean connected;
+
+  @Override public void onListenerConnected() { super.onListenerConnected(); connected = true; }
+  @Override public void onListenerDisconnected() { connected = false; super.onListenerDisconnected(); }
+
   public void onDestroy() {
+    connected = false;
     queue.shutdownNow();
     super.onDestroy();
   }
 
   public void onNotificationPosted(StatusBarNotification sb) {
-    if (
-      !"com.whatsapp.w4b".equals(sb.getPackageName()) ||
-      !new Store(this).enabled()
-    ) return;
+    if (!"com.whatsapp.w4b".equals(sb.getPackageName())) return;
+    Store store = new Store(this);
+    store.p.edit().putLong("lastSeen", System.currentTimeMillis()).apply();
+    if (!store.enabled()) { store.status("Received notification; invites are paused."); return; }
     Notification n = sb.getNotification();
-    if (
-      (n.flags & Notification.FLAG_GROUP_SUMMARY) != 0 ||
-      !Notification.CATEGORY_MESSAGE.equals(n.category)
-    ) return;
+    // Summary updates often follow the actual chat event. Do not replace its outcome.
+    if ((n.flags & Notification.FLAG_GROUP_SUMMARY) != 0) return;
+    if (n.category != null && !Notification.CATEGORY_MESSAGE.equals(n.category)) {
+      store.status("Not a chat message notification."); return;
+    }
     queue.execute(() -> {
       Store s = new Store(this);
       try {
@@ -97,31 +104,36 @@ public class Listener extends NotificationListenerService {
   void handle(Store s, StatusBarNotification sb) throws Exception {
     Notification n = sb.getNotification();
     Bundle b = n.extras;
-    Notification.Style recovered = Notification.Builder.recoverBuilder(
-      this,
-      n
-    ).getStyle();
-    if (!(recovered instanceof Notification.MessagingStyle)) return;
-    Notification.MessagingStyle style = (Notification.MessagingStyle) recovered;
-    if (
-      !s.enabled() ||
-      style == null ||
-      style.isGroupConversation() ||
-      b.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE) != null
-    ) return;
-    List<Notification.MessagingStyle.Message> msgs = style.getMessages();
-    if (msgs.isEmpty()) return;
+    if (!s.enabled()) return;
+    // WhatsApp / AndroidX may populate a conversation title even for a direct chat.
+    // Trust the explicit group flag, falling back to the legacy title rule if absent.
+    if (Policy.group(b.containsKey(Notification.EXTRA_IS_GROUP_CONVERSATION),
+        b.getBoolean(Notification.EXTRA_IS_GROUP_CONVERSATION),
+        b.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE) != null)) {
+      s.status("Skipped group or ambiguous conversation."); return;
+    }
+    List<Notification.MessagingStyle.Message> msgs;
+    Person self = b.getParcelable(Notification.EXTRA_MESSAGING_PERSON);
+    if (android.os.Build.VERSION.SDK_INT >= 30) {
+      Parcelable[] rows = b.getParcelableArray(Notification.EXTRA_MESSAGES);
+      msgs = rows == null ? Collections.emptyList() : Notification.MessagingStyle.Message.getMessagesFromBundleArray(rows);
+    } else {
+      Notification.Style recovered = Notification.Builder.recoverBuilder(this,n).getStyle();
+      msgs = recovered instanceof Notification.MessagingStyle ? ((Notification.MessagingStyle)recovered).getMessages() : Collections.emptyList();
+    }
+    if (msgs.isEmpty()) { s.status("No readable chat message in this notification."); return; }
     Notification.MessagingStyle.Message msg = msgs.get(msgs.size() - 1);
     Person who = msg.getSenderPerson();
-    if (who == null || who.equals(style.getUser())) return;
-    String from = str(who.getName()),
-      title = str(b.getCharSequence(Notification.EXTRA_TITLE));
-    if (from.isEmpty() || title.isEmpty()) return;
+    if (who == null || who.equals(self)) { s.status("Skipped outgoing or unidentified message."); return; }
+    String from = str(who.getName()), title = str(b.getCharSequence(Notification.EXTRA_TITLE));
+    if (title.isEmpty()) title = from;
+    if (from.isEmpty()) from = title;
+    if (from.isEmpty()) { s.status("Sender identity is hidden."); return; }
     long now = System.currentTimeMillis();
     if (
       !Policy.fresh(msg.getTimestamp(), now) ||
       !Policy.fresh(sb.getPostTime(), now)
-    ) return;
+    ) { s.status("Skipped old notification; send a new message."); return; }
     String uri = str(who.getUri()),
       number = uri.startsWith("tel:") ? Uri.decode(uri.substring(4)) : title;
     String id = hash(
@@ -132,7 +144,7 @@ public class Listener extends NotificationListenerService {
           : uri
     );
     String text = str(msg.getText());
-    if (text.isEmpty()) return;
+    if (text.isEmpty()) { s.status("No text in message. Test with a plain text message."); return; }
     long sent = s.p.getLong("sent." + id, 0);
     if (text.startsWith(Store.PREFIX)) {
       if (sent == 0 || now - sent > 86400000L) return;
@@ -162,15 +174,11 @@ public class Listener extends NotificationListenerService {
       return;
     }
     String mode = s.mode();
-    if (
-      !s.ready() ||
-      !Policy.cooled(sent, now) ||
-      !Policy.invite(
-        s.enabled(),
-        mode,
-        "Available".equals(mode) && unsaved(number)
-      )
-    ) return;
+    if (!s.ready()) { s.status("Message seen; finish provider and caller-page setup."); return; }
+    if (!Policy.cooled(sent, now)) { s.status("Message seen; this chat already received an invite in the last 6 hours."); return; }
+    if (!Policy.invite(s.enabled(), mode, "Available".equals(mode) && unsaved(number))) {
+      s.status("Available mode: contact saved or unsaved number could not be verified. Test in Busy mode."); return;
+    }
     Notification.Action action = null;
     RemoteInput input = null;
     if (n.actions != null) outer: for (Notification.Action a : n.actions) {
@@ -186,7 +194,7 @@ public class Listener extends NotificationListenerService {
           break outer;
         }
     }
-    if (input == null) return;
+    if (input == null) { s.status("Message seen; notification has no usable WhatsApp Reply action."); return; }
     // Bound token mint attempts, including unsuccessful network and PendingIntent sends.
     String day = LocalDate.now().toString();
     int count = day.equals(s.get("day")) ? s.p.getInt("count", 0) : 0;
@@ -194,13 +202,14 @@ public class Listener extends NotificationListenerService {
       s.status("Daily limit reached (20 invite attempts).");
       return;
     }
-    if (now - s.p.getLong("attempt." + id, 0) < 120000) return;
+    if (now - s.p.getLong("attempt." + id, 0) < 120000) return; // Preserve the last provider error.
     s.p
       .edit()
       .putLong("attempt." + id, now)
       .putString("day", day)
       .putInt("count", count + 1)
       .apply();
+    s.status("Message seen; requesting Gemini invite…");
     String link = s.invite(mode);
     if (!s.enabled() || !mode.equals(s.mode())) return;
     Bundle result = new Bundle();
