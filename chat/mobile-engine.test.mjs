@@ -1,0 +1,322 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { engine } from "./mobile-engine.mjs";
+const T = 1800000000000;
+const owner = "911234567890";
+const a = "919000000001@s.whatsapp.net",
+  b = "919000000002@s.whatsapp.net";
+function msg(jid, id, text = "hello", stamp = T) {
+  return {
+    key: { id, fromMe: false, remoteJid: jid },
+    messageTimestamp: stamp / 1000,
+    message: { conversation: text },
+  };
+}
+test("linked is silent; explicit away mode replies independently to all new direct texts, never broadcasts", async () => {
+  const out = [];
+  const e = engine({
+    owner,
+    scope: "all-direct",
+    provider: "test",
+    clock: () => T,
+  });
+  const send = (jid, text) => out.push([jid, text]);
+  const handle = (type, m) => e.handle(type, m, () => null, send);
+  e.connected(true);
+  await handle("notify", msg(a, "1"));
+  assert.equal(out.length, 0);
+  e.select("sleeping");
+  assert.equal(out.length, 0);
+  for (const [type, m] of [
+    ["append", msg(a, "2")],
+    ["notify", msg("123@g.us", "3")],
+    ["notify", msg(a, "4", "old", T - 2000)],
+  ])
+    await handle(type, m);
+  assert.equal(out.length, 0);
+  for (const j of [a, b]) await handle("notify", msg(j, "5"));
+  assert.deepEqual(
+    out.map((x) => x[0]),
+    [owner + "@s.whatsapp.net", a, owner + "@s.whatsapp.net", b],
+  );
+  assert.match(out[3][1], /Pavit is sleeping/);
+  const old = e.generation;
+  e.select("off");
+  await handle("notify", msg(b, "6"));
+  e.select("busy");
+  await e.handle("notify", msg(a, "7"), () => null, send, old);
+  assert.equal(out.length, 4);
+  e.connected(false);
+  e.connected(true);
+  assert.equal(e.active, false);
+});
+test("pause while note handoff pending suppresses subsequent away reply", async () => {
+  const e = engine({
+    owner,
+    scope: "all-direct",
+    provider: "test",
+    clock: () => T,
+  });
+  e.connected(true);
+  e.select("busy");
+  const out = [];
+  await assert.rejects(
+    e.handle(
+      "notify",
+      msg(a, "x"),
+      () => null,
+      async (j) => {
+        out.push(j);
+        e.select("off");
+      },
+    ),
+    /Paused/,
+  );
+  assert.deepEqual(out, [owner + "@s.whatsapp.net"]);
+});
+
+test("sleep deadline guards delayed Android wake and in-flight replies", async () => {
+  let now = T,
+    expired = 0,
+    notes = 0,
+    callback;
+  const sent = [];
+  const e = engine({
+    owner,
+    scope: "all-direct",
+    provider: "test",
+    clock: () => now,
+    later: (fn) => {
+      callback = fn;
+      return 1;
+    },
+    cancel: () => {},
+    onExpire: () => expired++,
+    onNote: () => notes++,
+  });
+  e.connected(true);
+  e.select("sleeping", 60000);
+  assert.equal(e.until, T + 60000);
+  await assert.rejects(
+    e.handle(
+      "notify",
+      msg(a, "timer"),
+      () => null,
+      async (j, t) => {
+        sent.push(j);
+        now += 60000;
+      },
+    ),
+    /Paused/,
+  );
+  callback();
+  assert.equal(notes, 1);
+  assert.equal(expired, 1);
+  assert.equal(e.active, false);
+  assert.deepEqual(sent, [owner + "@s.whatsapp.net"]);
+  assert.equal(e.until, 0);
+});
+test("changing mode cancels old timer; only current alarm can auto-pause", () => {
+  let callbacks = [],
+    cancelled = [],
+    expired = 0;
+  const e = engine({
+    owner,
+    clock: () => T,
+    later: (cb) => {
+      callbacks.push(cb);
+      return callbacks.length;
+    },
+    cancel: (id) => cancelled.push(id),
+    onExpire: () => expired++,
+  });
+  e.connected(true);
+  e.select("sleeping", 120000);
+  e.select("busy");
+  callbacks[0]();
+  assert.ok(e.active);
+  assert.equal(expired, 0);
+  assert.deepEqual(cancelled, [1]);
+  e.select("sleeping", 60000);
+  callbacks[1]();
+  assert.equal(e.active, false);
+  assert.equal(expired, 1);
+  e.select("sleeping", -1);
+  assert.equal(e.active, false);
+});
+
+test("explicit callback is handed off once and reported locally only after the self-chat send succeeds", async () => {
+  const events = [];
+  const e = engine({
+    owner,
+    scope: "all-direct",
+    provider: "groq",
+    generate: () => assert.fail("No AI call"),
+    clock: () => T,
+    onNote: (item) => events.push(item),
+  });
+  e.connected(true);
+  e.select("driving");
+  const raw = msg(a, "cb", "/CALLBACK after 6 pm");
+  const dispatch = () =>
+    e.handle(
+      "notify",
+      raw,
+      () => null,
+      async (j, t) => events.push([j, t]),
+    );
+  await dispatch();
+  await dispatch();
+  assert.equal(events.length, 3);
+  assert.match(events[0][1], /^CALLBACK · \+919000000001\nafter 6 pm$/);
+  assert.deepEqual(events[1], {
+    kind: "callback",
+    sender: "+919000000001",
+    text: "after 6 pm",
+  });
+  assert.match(events[2][1], /left your callback request/);
+});
+test("urgent handoff failure produces no local ticket and no success claim", async () => {
+  const replies = [];
+  const e = engine({
+    owner,
+    scope: "all-direct",
+    provider: "test",
+    clock: () => T,
+    onNote: () => assert.fail(),
+  });
+  e.connected(true);
+  e.select("sleeping");
+  await e.handle(
+    "notify",
+    msg(a, "u", "/urgent at the gate"),
+    () => null,
+    async (j, t) => {
+      if (j !== a) throw Error("offline");
+      replies.push(t);
+    },
+  );
+  assert.equal(replies.length, 1);
+  assert.match(replies[0], /couldn’t leave/);
+});
+test("no command handoff while paused, opted out, asking for help or missing details", async () => {
+  const notes = [],
+    replies = [];
+  const e = engine({
+    owner,
+    scope: "all-direct",
+    provider: "test",
+    clock: () => T,
+    onNote: (x) => notes.push(x),
+  });
+  e.connected(true);
+  let n = 0;
+  const h = (t) =>
+    e.handle(
+      "notify",
+      msg(a, String(++n), t),
+      () => null,
+      async (j, x) => replies.push(x),
+    );
+  await h("/urgent msg");
+  assert.equal(replies.length, 0);
+  e.select("busy", 0, "hi");
+  await h("/help");
+  await h("/callback");
+  await h("/urgent");
+  assert.match(replies[0], /Callback ke liye/);
+  await h("/stop");
+  await h("/urgent please call");
+  assert.equal(notes.length, 0);
+  await h("/start");
+  await h("/urgent please call");
+  assert.equal(notes[0].kind, "urgent");
+  assert.match(replies.at(-1), /urgent mark/);
+});
+test("ordinary messages mentioning urgency are not copied into the local queue", async () => {
+  const notes = [];
+  const e = engine({
+    owner,
+    scope: "all-direct",
+    provider: "test",
+    clock: () => T,
+    onNote: (item) => notes.push(item),
+  });
+  e.connected(true);
+  e.select("busy");
+  for (const [id, text] of [
+    ["a", "this is urgent"],
+    ["b", "/urgentcare details"],
+  ])
+    await e.handle(
+      "notify",
+      msg(a, id, text),
+      () => null,
+      async () => {},
+    );
+  assert.deepEqual(notes, [null, null]);
+});
+
+test("relink applies latest saved Busy reason only to fresh work, no replay or broadcast", async () => {
+  let now = T;
+  const e = engine({
+    owner,
+    scope: "all-direct",
+    provider: "test",
+    clock: () => now,
+  });
+  const out = [];
+  e.connected(true);
+  e.select("driving");
+  e.connected(false);
+  now += 60000;
+  assert.equal(e.active, false);
+  e.connected(true);
+  assert.equal(
+    e.restore({
+      value: "busy",
+      reason: " In a meeting\n until noon ",
+      language: "en",
+    }),
+    "busy",
+  );
+  const h = (m) =>
+    e.handle(
+      "notify",
+      m,
+      () => null,
+      async (j, t) => out.push(t),
+    );
+  await h(msg(a, "old", "hey", T));
+  assert.deepEqual(out, []);
+  await h(msg(a, "fresh", "hi", now));
+  assert.match(out.at(-1), /Reason: In a meeting until noon$/);
+  e.connected(false);
+  e.connected(true);
+  e.restore({ value: "off" });
+  assert.equal(e.active, false);
+});
+test("restored sleep resumes remaining time, never extends or revives expired timer", () => {
+  let now = T;
+  const e = engine({
+    owner,
+    clock: () => now,
+    later: () => 1,
+    cancel: () => {},
+  });
+  const saved = {
+    value: "sleeping",
+    until: T + 60000,
+    reason: "must not leak",
+  };
+  now += 30000;
+  e.connected(true);
+  e.restore(saved);
+  assert.equal(e.until, T + 60000);
+  assert.equal(e.callState().reason, "");
+  e.connected(false);
+  now += 31000;
+  e.connected(true);
+  assert.equal(e.restore(saved), "off");
+  assert.equal(e.active, false);
+});

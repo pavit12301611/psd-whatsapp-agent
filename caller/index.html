@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src wss://generativelanguage.googleapis.com; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>Talk to Mimi</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        background: #f5f3fb;
+        color: #2e2343;
+        font: 16px/1.5 system-ui;
+        margin: 0;
+        display: grid;
+        place-items: center;
+        min-height: 100svh;
+        padding: 20px;
+      }
+      main {
+        width: min(100%, 440px);
+        background: #fff;
+        border: 1px solid #e3dfea;
+        border-radius: 24px;
+        padding: 26px;
+      }
+      .art {
+        width: 100%;
+        height: 148px;
+        background: radial-gradient(ellipse at center, #8067b4, #483073);
+        border-radius: 16px;
+      }
+      small {
+        font: 700 10px/1.4 monospace;
+        letter-spacing: 1.6px;
+        color: #8060bd;
+      }
+      h1 {
+        font-size: 36px;
+        line-height: 1.1;
+        letter-spacing: -1.8px;
+        margin: 8px 0;
+      }
+      p {
+        color: #72697f;
+      }
+      button,
+      a {
+        display: inline-block;
+        border: 0;
+        padding: 12px 15px;
+        background: #6446a2;
+        color: white;
+        border-radius: 10px;
+        font: 600 14px system-ui;
+        text-decoration: none;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.55;
+      }
+      textarea {
+        width: 100%;
+        min-height: 140px;
+        font: inherit;
+        padding: 10px;
+        border: 1px solid #d5cde0;
+        border-radius: 10px;
+      }
+      label {
+        display: block;
+        margin-bottom: 10px;
+      }
+      #state {
+        font-size: 13px;
+        font-weight: 600;
+        color: #694999;
+      }
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img class="art" src="mimi.svg" alt="Mimi in her headset" /><small
+        >PRIVATE VOICE INVITE</small
+      >
+      <h1>Talk to Mimi.</h1>
+      <p>
+        I’m an AI receptionist. Tell me who you are, what you need and when
+        you’d like a reply.
+      </p>
+      <p>
+        Starting shares your microphone audio with Google Gemini. End the call
+        to review a brief; nothing is sent to the owner until you choose to
+        share it.
+      </p>
+      <p id="state" role="status"></p>
+      <button id="start">Agree & start voice call</button>
+      <button id="end" hidden>Finish & make brief</button>
+      <section id="result" hidden>
+        <label
+          >Review your brief
+          <textarea id="note" maxlength="2800"></textarea></label
+        ><button id="share">Send brief on WhatsApp ↗</button>
+      </section>
+    </main>
+    <script src="voice.js"></script>
+  </body>
+</html>

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#f8f8fc" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'none'"
+    />
+    <title>Mimi · Voice desk</title>
+    <link rel="stylesheet" href="desk.css" />
+  </head>
+  <body>
+    <script src="icons.js"></script>
+    <div class="shell">
+      <aside>
+        <div class="brand">
+          <b class="brandmark"><i></i><i></i></b> mimi<span>.</span>
+        </div>
+        <small class="label">PERSONAL WORKSPACE</small>
+        <nav id="nav"></nav>
+        <div class="sidefoot">
+          <b class="device">M</b>
+          <div>
+            <strong>My workspace</strong><small>Personal voice desk</small>
+          </div>
+        </div>
+      </aside>
+      <main>
+        <header>
+          <div class="crumb">
+            Workspace <span>/</span> <strong id="crumb">Overview</strong>
+          </div>
+          <div class="date" id="date"></div>
+        </header>
+        <div class="content" id="content"></div>
+      </main>
+    </div>
+    <dialog id="dialog">
+      <div id="modal"></div>
+      <button id="close">Close</button>
+    </dialog>
+    <script src="desk.js"></script>
+  </body>
+</html>
