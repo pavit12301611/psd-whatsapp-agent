@@ -128,6 +128,7 @@ document.addEventListener("click", (e) => {
   byId("dt").textContent = t?.[2] || "Connect WhatsApp";
   byId("dd").textContent =
     "This is the pocket desk design preview. Use the Android app for account settings, tools and WhatsApp linking.";
+  byId("demo").dataset.room = action;
   byId("demo").showModal();
 });
 byId("demo").querySelector("button").onclick = () => byId("demo").close();

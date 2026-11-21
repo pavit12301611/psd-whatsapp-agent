@@ -1,0 +1,14 @@
+<resources>
+    <style name="PocketApp" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:colorAccent">#73538E</item>
+        <item name="android:alertDialogTheme">@style/PocketDialog</item>
+        <item name="android:timePickerDialogTheme">@style/PocketDialog</item>
+    </style>
+    <style name="PocketDialog" parent="android:style/Theme.Material.Light.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/pocket_sheet</item>
+        <item name="android:colorAccent">#73538E</item>
+        <item name="android:colorControlActivated">#73538E</item>
+        <item name="android:textColorPrimary">#30273F</item>
+        <item name="android:textColorSecondary">#685C70</item>
+    </style>
+</resources>

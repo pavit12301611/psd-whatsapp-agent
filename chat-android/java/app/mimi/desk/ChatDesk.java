@@ -217,7 +217,7 @@ public class ChatDesk extends Activity {
     LinearLayout panel = box(Color.WHITE, 18);
     sc.addView(panel);
     text(panel, "Busy reason · optional", 16, ink, true);
-    EditText why = new EditText(this);
+    EditText why = PocketDialog.input(this);
     why.setSingleLine();
     why.setHint("For example: In a meeting until 4 pm");
     why.setFilters(new android.text.InputFilter[] {
@@ -236,7 +236,7 @@ public class ChatDesk extends Activity {
       muted,
       false
     );
-    AlertDialog d = new AlertDialog.Builder(this)
+    AlertDialog d = new PocketDialog(this, PocketDialog.Room.FOCUS)
       .setTitle("Set Busy status")
       .setView(sc)
       .setPositiveButton("Save Busy", (x, k) ->
@@ -258,9 +258,9 @@ public class ChatDesk extends Activity {
       "Until a wake-up time…",
       "Until I pause manually",
     };
-    new AlertDialog.Builder(this)
+    new PocketDialog(this, PocketDialog.Room.SLEEP)
       .setTitle("Sleep timer")
-      .setItems(choices, (d, i) -> {
+      .setAdapter(PocketDialog.rows(this, PocketDialog.Room.SLEEP, java.util.Arrays.asList(choices)), (d, i) -> {
         if (i < 4) {
           activate("sleeping", new int[] { 20, 60, 360, 480 }[i] * 60000L);
           return;
@@ -271,7 +271,7 @@ public class ChatDesk extends Activity {
         }
         if (i == 5) {
           java.util.Calendar now = java.util.Calendar.getInstance();
-          new TimePickerDialog(
+          TimePickerDialog clock = new TimePickerDialog(
             this,
             (view, h, min) -> {
               java.util.Calendar at = java.util.Calendar.getInstance();
@@ -289,16 +289,21 @@ public class ChatDesk extends Activity {
             now.get(java.util.Calendar.HOUR_OF_DAY),
             now.get(java.util.Calendar.MINUTE),
             android.text.format.DateFormat.is24HourFormat(this)
-          ).show();
+          );
+          clock.setCustomTitle(PocketDialog.header(this, PocketDialog.Room.SLEEP, "Wake-up time"));
+          PocketDialog.decorate(this, clock, PocketDialog.Room.SLEEP);
+          clock.show();
           return;
         }
-        EditText input = new EditText(this);
+        EditText input = PocketDialog.input(this);
         input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
         input.setHint("1 to 1440 minutes");
         input.setSingleLine();
-        AlertDialog custom = new AlertDialog.Builder(this)
+        LinearLayout minutesPanel = box(Color.WHITE, 16);
+        minutesPanel.addView(input);
+        AlertDialog custom = new PocketDialog(this, PocketDialog.Room.SLEEP)
           .setTitle("Sleep for how long?")
-          .setView(input)
+          .setView(minutesPanel)
           .setNegativeButton("Cancel", null)
           .setPositiveButton("Start timer", null)
           .create();
@@ -329,8 +334,8 @@ public class ChatDesk extends Activity {
         sc.useDelimiter("\\A").next()
       );
       LinearLayout panel = box(Color.WHITE, 16);
-      Spinner language = new Spinner(this),
-        mode = new Spinner(this);
+      Spinner language = PocketDialog.menu(this),
+        mode = PocketDialog.menu(this);
       String[] languages = { "English", "Hinglish" },
         samples = { "Sleeping", "Busy", "Driving" };
       language.setAdapter(
@@ -363,6 +368,8 @@ public class ChatDesk extends Activity {
       );
       gap(panel, 10);
       TextView sample = text(panel, "", 16, ink, false);
+      sample.setBackground(bg(0xfff3eaf8, 16));
+      sample.setPadding(dp(14), dp(12), dp(14), dp(12));
       Runnable update = () -> {
         String lang = language.getSelectedItemPosition() == 1 ? "hi" : "en";
         Availability a = saved();
@@ -400,7 +407,7 @@ public class ChatDesk extends Activity {
       );
       ScrollView scroll = new ScrollView(this);
       scroll.addView(panel);
-      new AlertDialog.Builder(this)
+      new PocketDialog(this, PocketDialog.Room.STUDIO)
         .setTitle("Mimi’s reply preview")
         .setView(scroll)
         .setNegativeButton("Cancel", null)
@@ -504,7 +511,7 @@ public class ChatDesk extends Activity {
 
   EditText field(LinearLayout l, String caption, String value, boolean key) {
     text(l, caption, 13, muted, true);
-    EditText e = new EditText(this);
+    EditText e = PocketDialog.input(this);
     e.setSingleLine();
     e.setInputType(key ? 129 : 3);
     e.setText(value);
@@ -558,7 +565,7 @@ public class ChatDesk extends Activity {
     gap(l, 12);
     String[] names = { "Message-taking · no key", "Gemini chat", "Groq chat" },
       provs = { "test", "gemini", "groq" };
-    Spinner prov = new Spinner(this);
+    Spinner prov = PocketDialog.menu(this);
     prov.setAdapter(
       new ArrayAdapter<String>(
         this,
@@ -590,7 +597,7 @@ public class ChatDesk extends Activity {
       muted,
       false
     );
-    AlertDialog d = new AlertDialog.Builder(this)
+    AlertDialog d = new PocketDialog(this, PocketDialog.Room.ACCOUNT)
       .setTitle("Account & AI settings")
       .setView(sc)
       .setNegativeButton("Cancel", null)
@@ -660,7 +667,7 @@ public class ChatDesk extends Activity {
   }
 
   void forget() {
-    new AlertDialog.Builder(this)
+    new PocketDialog(this, PocketDialog.Room.CONFIRM)
       .setTitle("Forget this local account?")
       .setMessage(
         "Log this device out in WhatsApp Business → Linked devices as well. This removes its local session and saved AI keys; it does not erase WhatsApp conversations."

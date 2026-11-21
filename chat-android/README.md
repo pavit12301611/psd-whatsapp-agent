@@ -53,3 +53,6 @@ Test on-device: connect → confirm paused → no response to a new DM → choos
 
 ### Pocket Desk 0.8.1 · Pet Mimi
 The launcher now shows a cream bunny with a mint scarf and pink heart. Open Pocket Desk to see local, GIF-like sprite loops for each availability; **Pet Mimi** is purely visual and never sends a message or changes a mode. Reduced-motion displays use still artwork. Install over **Pocket Desk 0.8.0** (same package and signing certificate) without clearing app data. This does not upgrade the separate legacy Chat Desk.
+
+### Pocket Desk 0.8.2 · Native pocket panels
+Busy, sleep presets/custom minutes/wake-up time, Reply Studio, account setup, Call Shield and the follow-up inbox now use bunny headers, section colors and rounded controls. Destructive actions use a distinct confirmation palette. Forms and notes stay in secure native dialogs; the browser preview does not collect credentials. Android-owned permission and install prompts retain the system appearance.
