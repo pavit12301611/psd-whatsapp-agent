@@ -1,6 +1,6 @@
 # Mimi Chat Desk · standalone Android APK
 
-`releases/Mimi-Chat-Desk.apk` is the chat-first ARM64 build for the Galaxy A53 5G. It updates the earlier Mimi package (version code 4, same signer). The chat launcher **replaces** the old notification/invite workflow; no caller page, Termux, shell commands, notification-reading permission or server needed. This does not answer voice calls.
+`releases/Mimi-Chat-Desk.apk` is the chat-first ARM64 build for the Galaxy A53 5G. It updates the earlier Mimi package (version code 5, same signer). The chat launcher **replaces** the old notification/invite workflow; no caller page, Termux, shell commands, notification-reading permission or server needed. This does not answer voice calls.
 
 ## On the phone
 1. Install the chat APK. If you ran the older Termux experiment, stop that process and log out its old linked device first.
@@ -15,6 +15,11 @@
 - The countdown is shown on the desk and foreground notification. When time expires the engine pauses without sending a wake-up message. Switching mode, disconnecting or stopping clears the timer. The engine checks the deadline before sending even if Android delayed the timer callback. Use **Pause replies** in the notification to end a mode early without unlinking.
 - **Reply Studio → Preview greeting & language** previews each mode offline without messaging anybody. Save English or Hinglish; the selection takes effect the next time you activate an away mode. AI consent/controls remain separate. WhatsApp displays the name on the owner's account; the Mimi signature is inside the message, not a contact rename.
 - The session counter counts notes successfully sent to Pavit’s self-chat, not messages he has read. No new transcript is stored for this counter.
+
+## Callback and urgent follow-ups (0.5)
+While an away mode is active, senders can use `/help`, `/callback after 6 pm` or `/urgent delivery at the gate`. Requests are labeled in your WhatsApp self-chat. Bare commands ask for details. No AI key needed; commands do not send content to a provider, dial a number, schedule an alarm or bypass pause, opt-out, scope or sleep settings. Urgency is sender-selected, not inferred.
+
+**Reply Studio → Follow-up inbox → Enable list** optionally keeps up to 50 recent tagged requests **per owner**, encrypted on this device. Enable it before the test: existing WhatsApp messages are not imported. Each local entry holds the request type, sender identifier, time, up to 600 characters, and done/open state. The original handoff is still in WhatsApp if local storage is disabled or unavailable. Filter pending/callback/urgent/done; open a request to mark done, reopen, delete or open its chat when a phone number is available. Refresh to load new arrivals. Turning the list off erases its local entries; forgetting that local account erases them too. No alarm or lock-screen preview for urgent messages.
 
 ## Privacy and support
 An unofficial Baileys client runs in the app's private storage. Test with a spare number: protocol changes, disconnects or account restrictions are possible. The APK bundles the Android ARM64 Bun runtime and locked JS dependencies; it never installs executable code from the network at runtime. A foreground service exchanges commands with its child over private pipes. Credentials are not put in URLs, logs or a public endpoint. The agent runs on the phone; optional AI inference runs at the chosen provider. Session files are sensitive. Stop, log the device out in WhatsApp, then **Forget local session** to clear local credentials. In case of a stale/expired pairing, repeat that procedure and reconnect. No OTP, pairing code or API key is needed in a support message.

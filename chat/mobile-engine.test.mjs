@@ -144,3 +144,115 @@ test("changing mode cancels old timer; only current alarm can auto-pause", () =>
   e.select("sleeping", -1);
   assert.equal(e.active, false);
 });
+
+test("explicit callback is handed off once and reported locally only after the self-chat send succeeds", async () => {
+  const events = [];
+  const e = engine({
+    owner,
+    scope: "all-direct",
+    provider: "groq",
+    generate: () => assert.fail("No AI call"),
+    clock: () => T,
+    onNote: (item) => events.push(item),
+  });
+  e.connected(true);
+  e.select("driving");
+  const raw = msg(a, "cb", "/CALLBACK after 6 pm");
+  const dispatch = () =>
+    e.handle(
+      "notify",
+      raw,
+      () => null,
+      async (j, t) => events.push([j, t]),
+    );
+  await dispatch();
+  await dispatch();
+  assert.equal(events.length, 3);
+  assert.match(events[0][1], /^CALLBACK · \+919000000001\nafter 6 pm$/);
+  assert.deepEqual(events[1], {
+    kind: "callback",
+    sender: "+919000000001",
+    text: "after 6 pm",
+  });
+  assert.match(events[2][1], /left your callback request/);
+});
+test("urgent handoff failure produces no local ticket and no success claim", async () => {
+  const replies = [];
+  const e = engine({
+    owner,
+    scope: "all-direct",
+    provider: "test",
+    clock: () => T,
+    onNote: () => assert.fail(),
+  });
+  e.connected(true);
+  e.select("sleeping");
+  await e.handle(
+    "notify",
+    msg(a, "u", "/urgent at the gate"),
+    () => null,
+    async (j, t) => {
+      if (j !== a) throw Error("offline");
+      replies.push(t);
+    },
+  );
+  assert.equal(replies.length, 1);
+  assert.match(replies[0], /couldn’t leave/);
+});
+test("no command handoff while paused, opted out, asking for help or missing details", async () => {
+  const notes = [],
+    replies = [];
+  const e = engine({
+    owner,
+    scope: "all-direct",
+    provider: "test",
+    clock: () => T,
+    onNote: (x) => notes.push(x),
+  });
+  e.connected(true);
+  let n = 0;
+  const h = (t) =>
+    e.handle(
+      "notify",
+      msg(a, String(++n), t),
+      () => null,
+      async (j, x) => replies.push(x),
+    );
+  await h("/urgent msg");
+  assert.equal(replies.length, 0);
+  e.select("busy", 0, "hi");
+  await h("/help");
+  await h("/callback");
+  await h("/urgent");
+  assert.match(replies[0], /Callback ke liye/);
+  await h("/stop");
+  await h("/urgent please call");
+  assert.equal(notes.length, 0);
+  await h("/start");
+  await h("/urgent please call");
+  assert.equal(notes[0].kind, "urgent");
+  assert.match(replies.at(-1), /urgent mark/);
+});
+test("ordinary messages mentioning urgency are not copied into the local queue", async () => {
+  const notes = [];
+  const e = engine({
+    owner,
+    scope: "all-direct",
+    provider: "test",
+    clock: () => T,
+    onNote: (item) => notes.push(item),
+  });
+  e.connected(true);
+  e.select("busy");
+  for (const [id, text] of [
+    ["a", "this is urgent"],
+    ["b", "/urgentcare details"],
+  ])
+    await e.handle(
+      "notify",
+      msg(a, id, text),
+      () => null,
+      async () => {},
+    );
+  assert.deepEqual(notes, [null, null]);
+});

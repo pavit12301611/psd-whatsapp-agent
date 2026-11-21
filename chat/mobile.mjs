@@ -49,7 +49,7 @@ async function init(config) {
       emit("mode", "off");
       emit("status", "Sleep timer finished. Auto-replies are paused.");
     },
-    onNote: () => emit("note", ""),
+    onNote: (item) => emit("note", item),
   });
   const folder = join(process.env.HOME, "sessions", owner);
   await mkdir(folder, { recursive: true, mode: 0o700 });

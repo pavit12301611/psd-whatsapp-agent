@@ -198,6 +198,7 @@ public class ChatService extends Service {
         } catch (IOException ignored) {}
       }, "Mimi-stderr").start();
       Store s = new Store(this);
+      FollowUps followUps = new FollowUps(s, s.get("chat.owner"));
       String provider = s.p.getString("chat.provider", "test");
       write(
         Store.obj(
@@ -221,7 +222,7 @@ public class ChatService extends Service {
       ) {
         String line;
         while (!closed && (line = in.readLine()) != null) {
-          if (line.length() > 512 || !line.startsWith("{")) continue;
+          if (line.length() > 4608 || !line.startsWith("{")) continue;
           JSONObject event;
           try {
             event = new JSONObject(line);
@@ -270,6 +271,12 @@ public class ChatService extends Service {
                 break;
               case "note":
                 notes++;
+                try {
+                  followUps.add(event.optJSONObject("value"));
+                } catch (Exception failed) {
+                  status =
+                    "WhatsApp note sent, but local follow-up storage is unavailable.";
+                }
                 break;
               case "status":
                 status = v;

@@ -58,9 +58,9 @@ export function away(mode, language = "en") {
       sleeping: "so raha hai",
       driving: "drive kar raha hai",
     }[mode];
-    return `${signature} Pavit abhi ${status}. Maine uske liye tumhara message chhod diya hai. Free hote hi woh reply karega. Pavit ko aur kya batana hai? Mujhe text kar do.`;
+    return `${signature} Pavit abhi ${status}. Maine uske liye tumhara message chhod diya hai. Free hote hi woh reply karega. Pavit ko aur kya batana hai? Mujhe text kar do. Options ke liye /help likho.`;
   }
-  return `${signature} Pavit is ${mode} right now. I’ve left your message for him. He’ll reply as soon as he’s free. Text me what you’d like Pavit to know, and I’ll handle the rest.`;
+  return `${signature} Pavit is ${mode} right now. I’ve left your message for him. He’ll reply as soon as he’s free. Text me what you’d like Pavit to know, and I’ll handle the rest. Send /help for options.`;
 }
 
 // One tester, no on-disk transcript. One instance across socket reconnects.
@@ -112,14 +112,44 @@ export function conversation({
     bucket = bucket.filter((x) => t - x < 60000);
     if (bucket.length >= 6) return "rate limited";
     bucket.push(t);
+    const hi = language === "hi";
+    if (cmd === "/help") {
+      await send(
+        `${signature} ${hi ? "Callback ke liye /callback <time ya reason>, zaroori note ke liye /urgent <message> likho. /stop se replies band honge." : "Send /callback <time or reason> to request a call, /urgent <message> to flag a note, or /stop to pause replies."}`,
+      );
+      return "help";
+    }
+    // Only an explicit command is tagged. Never infer urgency from normal chat.
+    const command = /^\/(callback|urgent)(?:\s+([\s\S]+))?$/i.exec(
+      m.text.trim(),
+    );
+    const kind = command?.[1].toLowerCase();
+    if (kind && !command[2]?.trim()) {
+      await send(
+        `${signature} ${hi ? "Aise likho" : "Try"}: ${kind === "callback" ? "/callback after 6 pm" : "/urgent delivery at the gate"}`,
+      );
+      return "needs details";
+    }
     // Only claim a handoff after the owner's self-chat send has succeeded.
     try {
-      await leaveNote(m.text);
+      await leaveNote(command ? command[2].trim() : m.text, kind);
     } catch {
       await send(
         `${signature} I couldn’t leave a separate note for Pavit this time. Your original WhatsApp message is still in this chat.`,
       );
       return "handoff failed";
+    }
+    if (kind) {
+      const ack =
+        kind === "callback"
+          ? hi
+            ? "Pavit ke liye callback request chhod di hai."
+            : "I’ve left your callback request for Pavit."
+          : hi
+            ? "Pavit ke liye tumhara note urgent mark kar diya hai. Instant reply guaranteed nahi hai."
+            : "I’ve marked your note urgent for Pavit. This does not guarantee an immediate response.";
+      await send(`${signature} ${ack}`);
+      return kind;
     }
     if (!greeted) {
       const optIn =

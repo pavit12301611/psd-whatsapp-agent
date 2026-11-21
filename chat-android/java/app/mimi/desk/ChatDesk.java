@@ -129,6 +129,18 @@ public class ChatDesk extends Activity {
     gap(personal, 6);
     briefing = text(personal, "", 15, ink, false);
     button(personal, "Preview greeting & language", this::studio);
+    button(personal, "Follow-up inbox", () -> {
+      String owner = store.get("chat.owner");
+      if (owner.isEmpty()) {
+        Toast.makeText(
+          this,
+          "Set up your WhatsApp number first.",
+          Toast.LENGTH_SHORT
+        ).show();
+        return;
+      }
+      new FollowUpDesk(this, owner).show();
+    });
     gap(page, 14);
     LinearLayout card = box(Color.WHITE, 16);
     page.addView(card);
@@ -581,6 +593,7 @@ public class ChatDesk extends Activity {
             "Could not clear session. Use Android app storage settings.";
           return;
         }
+        new FollowUps(store, owner).forget();
         store.p
           .edit()
           .remove("chat.owner")

@@ -149,10 +149,10 @@ function connect() {
           const result = await reply(
             m,
             (text) => deliver(m.jid, text),
-            (text) =>
+            (text, kind) =>
               deliver(
                 `${owner}@s.whatsapp.net`,
-                `Mimi inbox · from +${tester}\n${text}`,
+                `${kind ? kind.toUpperCase() : "Mimi inbox"} · from +${tester}\n${text}`,
               ),
           );
           console.log("Mimi:", result);

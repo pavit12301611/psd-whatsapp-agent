@@ -91,9 +91,15 @@ export function engine({
     const result = await chats.get(jid)(
       m,
       (t) => deliver(jid, t),
-      async (t) => {
-        await deliver(owner + "@s.whatsapp.net", `Mimi inbox · ${name}\n${t}`);
-        onNote();
+      async (t, kind) => {
+        const label =
+          kind === "urgent"
+            ? "URGENT"
+            : kind === "callback"
+              ? "CALLBACK"
+              : "Mimi inbox";
+        await deliver(owner + "@s.whatsapp.net", `${label} · ${name}\n${t}`);
+        onNote(kind ? { kind, sender: name, text: t.slice(0, 600) } : null);
       },
     );
     if (valid() && result !== "duplicate")
