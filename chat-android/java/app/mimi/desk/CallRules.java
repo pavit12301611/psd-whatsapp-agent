@@ -89,11 +89,11 @@ final class CallRules {
       a.muted,
       false
     );
-    EditText label = new EditText(a);
+    EditText label = PocketDialog.input(a);
     label.setHint("Name (optional)");
     label.setSingleLine(true);
     panel.addView(label);
-    EditText phone = new EditText(a);
+    EditText phone = PocketDialog.input(a);
     phone.setInputType(android.text.InputType.TYPE_CLASS_PHONE);
     phone.setSingleLine(true);
     phone.setHint("+91 …");
@@ -163,7 +163,7 @@ final class CallRules {
       a.muted,
       false
     );
-    AlertDialog d = new AlertDialog.Builder(a)
+    AlertDialog d = new PocketDialog(a, PocketDialog.Room.SHIELD)
       .setTitle("Call Shield")
       .setView(sc)
       .setNegativeButton("Cancel", null)

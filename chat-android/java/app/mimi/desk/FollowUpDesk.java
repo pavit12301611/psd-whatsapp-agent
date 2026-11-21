@@ -42,7 +42,7 @@ final class FollowUpDesk {
   void show() {
     if (!queue.enabled()) {
       secure(
-        new AlertDialog.Builder(a)
+        new PocketDialog(a, PocketDialog.Room.INBOX)
           .setTitle("Private follow-ups")
           .setMessage(
             "Keep the latest 50 callback and urgent requests here? Sender, time and up to 600 characters per request are encrypted on this phone. Regular chats are not copied. Only future requests are included. Without this list, tagged notes still go to your WhatsApp self-chat."
@@ -64,7 +64,7 @@ final class FollowUpDesk {
       a.muted,
       false
     );
-    Spinner select = new Spinner(a);
+    Spinner select = PocketDialog.menu(a);
     select.setAdapter(
       new ArrayAdapter<String>(
         a,
@@ -108,7 +108,7 @@ final class FollowUpDesk {
         "No " + filters[filter].toLowerCase(Locale.ROOT) + " requests."
       );
       list.setAdapter(
-        new ArrayAdapter<String>(a, android.R.layout.simple_list_item_1, labels)
+        PocketDialog.rows(a, PocketDialog.Room.INBOX, labels)
       );
     };
     refresh.run();
@@ -122,7 +122,7 @@ final class FollowUpDesk {
         }
       }
     );
-    AlertDialog desk = new AlertDialog.Builder(a)
+    AlertDialog desk = new PocketDialog(a, PocketDialog.Room.INBOX)
       .setTitle("Follow-up inbox")
       .setView(l)
       .setPositiveButton("Close", null)
@@ -141,7 +141,7 @@ final class FollowUpDesk {
 
   void disable() {
     secure(
-      new AlertDialog.Builder(a)
+      new PocketDialog(a, PocketDialog.Room.CONFIRM)
         .setTitle("Turn off and erase local follow-ups?")
         .setMessage(
           "This deletes the list for this account. WhatsApp messages will not be deleted."
@@ -188,7 +188,7 @@ final class FollowUpDesk {
     ScrollView sc = new ScrollView(a);
     sc.addView(l);
     secure(
-      new AlertDialog.Builder(a)
+      new PocketDialog(a, PocketDialog.Room.INBOX)
         .setTitle(
           row.optString("kind").equals("urgent")
             ? "Urgent note"
@@ -206,8 +206,9 @@ final class FollowUpDesk {
         })
         .setNeutralButton("Delete…", (d, k) ->
           secure(
-            new AlertDialog.Builder(a)
-              .setMessage("Delete this local request?")
+            new PocketDialog(a, PocketDialog.Room.CONFIRM)
+              .setTitle("Delete request?")
+              .setMessage("This removes the note from this phone, not from WhatsApp.")
               .setNegativeButton("Cancel", (x, y) -> show())
               .setPositiveButton("Delete", (x, y) -> {
                 try {

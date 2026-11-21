@@ -2,6 +2,11 @@
 
 `releases/Mimi-Chat-Desk.apk` is the chat-first ARM64 build for the Galaxy A53 5G. It updates the earlier Mimi package (version code 8, same signer). The chat launcher **replaces** the old notification/invite workflow; no caller page, Termux, shell commands, notification-reading permission or server needed. This does not answer voice calls.
 
+## Pocket Desk redesign (0.8.0)
+Install **`releases/Mimi-Pocket-Desk.apk`** for the redesigned home screen. This side-by-side build has its own Android application ID (`app.mimi.desk.pocket`), signer and private storage. It does **not** update or migrate the older Chat Desk. Keep the old app installed; stop its chat engine before linking the new desk to avoid duplicate replies. Set up the Business number, tester scope, priority rules and optional keys in the new app. To switch back, stop Pocket Desk first.
+
+The top badge tracks the actual connection while Mimi’s pixel island reflects the **saved availability**. Busy and Sleeping only change after you confirm the native picker; the sleep deadline still ends in Pause. Tap **Account & AI** or the **P** avatar for settings. Design assets and the Figma-importable mobile frame are documented in [the handoff](../design/README.md). Browser mode is a local interactive design preview only.
+
 ## On the phone
 1. Install the chat APK. If you ran the older Termux experiment, stop that process and log out its old linked device first.
 2. Tap **Connect WhatsApp**. Enter your Business number with country code. For a first test, enter one friend's number in the optional tester field. **Blank tester = all incoming direct text chats** while a mode is active. Nothing is sent merely by connecting or changing a setting.
@@ -45,3 +50,9 @@ An unofficial Baileys client runs in the app's private storage. Test with a spar
 Use JDK 17, Android SDK platform/build-tools 34, Node 22+, npm, tar, unzip/zip, openssl and Python 3. `tools/build-chat-apk.sh` verifies the pinned Android Bun archive, installs dependencies from `chat/package-lock.json`, runs routing tests, builds the APK and verifies its signature. Set `MIMI_KEYSTORE` / `MIMI_STORE_PASS` to sign an update with your own key. `tools/build-apk.sh` is the **legacy voice APK** build, not the chat APK.
 
 Test on-device: connect → confirm paused → no response to a new DM → choose Sleeping → new DM gets status greeting → a second sender gets an independent greeting → group text gets none → pause → no response. Test screen locked and after a network reconnect. The packaged runner's JS startup was smoke-tested with the matching desktop Bun version, not on an A53 or a live WhatsApp account.
+
+### Pocket Desk 0.8.1 · Pet Mimi
+The launcher now shows a cream bunny with a mint scarf and pink heart. Open Pocket Desk to see local, GIF-like sprite loops for each availability; **Pet Mimi** is purely visual and never sends a message or changes a mode. Reduced-motion displays use still artwork. Install over **Pocket Desk 0.8.0** (same package and signing certificate) without clearing app data. This does not upgrade the separate legacy Chat Desk.
+
+### Pocket Desk 0.8.2 · Native pocket panels
+Busy, sleep presets/custom minutes/wake-up time, Reply Studio, account setup, Call Shield and the follow-up inbox now use bunny headers, section colors and rounded controls. Destructive actions use a distinct confirmation palette. Forms and notes stay in secure native dialogs; the browser preview does not collect credentials. Android-owned permission and install prompts retain the system appearance.

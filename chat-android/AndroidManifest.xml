@@ -1,10 +1,10 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="app.mimi.desk" android:versionCode="8" android:versionName="0.7.1-chat">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="app.mimi.desk" android:versionCode="11" android:versionName="0.8.2-pocket">
  <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="34"/>
  <uses-permission android:name="android.permission.INTERNET"/>
  <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING"/>
  <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
- <application android:label="Mimi Chat Desk" android:icon="@drawable/mimi" android:allowBackup="false" android:usesCleartextTraffic="false" android:extractNativeLibs="true" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+ <application android:label="Mimi Chat Desk" android:icon="@mipmap/pocket_icon" android:allowBackup="false" android:usesCleartextTraffic="false" android:extractNativeLibs="true" android:theme="@style/PocketApp">
   <activity android:name=".ChatDesk" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
   <service android:name=".ChatService" android:exported="false" android:foregroundServiceType="remoteMessaging"/>
  </application>
