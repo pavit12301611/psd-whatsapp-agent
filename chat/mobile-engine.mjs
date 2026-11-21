@@ -22,7 +22,8 @@ export function engine({
     optedOut = new Set();
   let until = 0,
     alarm,
-    language = "en";
+    language = "en",
+    reason = "";
   function expire(epoch) {
     if (epoch !== generation || !until) return;
     select("off");
@@ -33,7 +34,7 @@ export function engine({
     if (until && clock() >= until) expire(generation);
     return online && mode !== "off";
   }
-  function select(value, durationMs = 0, lang = "en") {
+  function select(value, durationMs = 0, lang = "en", why = "") {
     if (alarm != null) cancel(alarm);
     alarm = undefined;
     until = 0;
@@ -44,6 +45,8 @@ export function engine({
       durationMs > 25 * 3600000
     )
       value = "off";
+    reason =
+      value === "busy" && typeof why === "string" ? why.slice(0, 120) : "";
     generation++;
     mode =
       online && ["busy", "sleeping", "driving"].includes(value) ? value : "off";
@@ -78,7 +81,14 @@ export function engine({
       }
       chats.set(
         jid,
-        conversation({ provider, mode, generate, language, now: clock }),
+        conversation({
+          provider,
+          mode,
+          generate,
+          language,
+          reason,
+          now: clock,
+        }),
       );
     }
     const deliver = async (to, text) => {
@@ -111,6 +121,22 @@ export function engine({
   }
   return {
     select,
+    restore(saved) {
+      const end = saved.until ?? 0,
+        remaining = end - clock();
+      if (
+        saved.value === "sleeping" &&
+        end !== 0 &&
+        (!Number.isSafeInteger(end) || remaining <= 0)
+      )
+        return select("off");
+      return select(
+        saved.value,
+        saved.value === "sleeping" && end !== 0 ? remaining : 0,
+        saved.language,
+        saved.reason,
+      );
+    },
     connected,
     handle,
     get generation() {
@@ -126,6 +152,7 @@ export function engine({
             mode,
             since,
             language,
+            reason,
             optedOut: (jid) => optedOut.has(jid),
           }
         : null;

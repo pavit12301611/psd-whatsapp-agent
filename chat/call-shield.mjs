@@ -1,4 +1,4 @@
-import { signature } from "./routing.mjs";
+import { signature, reasonSuffix } from "./routing.mjs";
 
 const pnJid = /^([1-9]\d{6,14})(?::\d+)?@s\.whatsapp\.net$/;
 const lidJid = /^\d+(?::\d+)?@lid$/;
@@ -141,7 +141,10 @@ export function callShield({
         ? `${signature} Pavit abhi ${status}, isliye call nahi le sakta. Apna message yahin bhej do, ya /callback ke saath time likh do.`
         : `${signature} Pavit is ${snapshot.mode} and can’t take your call right now. Please leave a message here, or send /callback with a good time to call you back.`;
     try {
-      await send(c.chatId, text);
+      await send(
+        c.chatId,
+        text + reasonSuffix(snapshot.mode, snapshot.language, snapshot.reason),
+      );
       report("Call decline requested · away text sent.");
     } catch {
       replies.delete(n);

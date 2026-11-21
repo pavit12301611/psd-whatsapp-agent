@@ -63,6 +63,7 @@ async function init(config) {
   const folder = join(process.env.HOME, "sessions", owner);
   await mkdir(folder, { recursive: true, mode: 0o700 });
   const { state, saveCreds } = await useMultiFileAuthState(folder);
+  let previouslyLinked = !!state.creds.account;
   function connect() {
     if (closing) return;
     const s = makeSocket({
@@ -94,19 +95,22 @@ async function init(config) {
         }
       }
       if (connection === "open") {
+        previouslyLinked = true;
         core.connected(true);
         retries = 0;
-        emit(
-          "linked",
-          "Linked. Replies are paused until you select an away mode.",
-        );
+        emit("linked", "Linked. Applying saved availability…");
       }
       if (connection === "close") {
         sock = null;
         core.connected(false);
-        emit("offline", "Disconnected. Replies paused.");
+        emit("offline", "Connection lost. Your availability is saved.");
         const code = lastDisconnect?.error?.output?.statusCode;
-        if ([401, 403, 411, 440, 500].includes(code) || ++retries > 5)
+        retries++;
+        const networkLoss = previouslyLinked && [408, 428, 503].includes(code);
+        if (
+          [401, 403, 411, 440, 500].includes(code) ||
+          (!networkLoss && retries > 5)
+        )
           return fail(
             `WhatsApp connection closed (${code || "network"}). Check Linked devices, then reconnect.`,
           );
@@ -114,7 +118,7 @@ async function init(config) {
           connect,
           code === DisconnectReason.restartRequired
             ? 500
-            : Math.min(30000, 2 ** retries * 1000),
+            : Math.min(60000, 2 ** Math.min(retries, 6) * 1000),
         );
       }
     });
@@ -172,7 +176,7 @@ input.on("line", (line) => {
       shield.configure(m.calls);
     } else if (m.type === "mode" && core) {
       shield.configure(m.calls);
-      const mode = core.select(m.value, m.durationMs, m.language);
+      const mode = core.restore(m);
       emit("mode", mode, core.until);
     }
   } catch {

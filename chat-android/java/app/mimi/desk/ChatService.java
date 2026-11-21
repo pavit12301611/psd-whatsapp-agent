@@ -11,6 +11,42 @@ import org.json.*;
 public class ChatService extends Service {
 
   static volatile boolean running, linked;
+  static volatile Runnable observer;
+  static final Handler main = new Handler(Looper.getMainLooper());
+
+  static void changed() {
+    main.post(() -> {
+      Runnable r = observer;
+      if (r != null) r.run();
+    });
+  }
+
+  private synchronized void syncSelection() throws Exception {
+    if (!linked || closed) return;
+    Store s = new Store(this);
+    Availability a = Availability.get(
+      s.p,
+      s.get("chat.owner"),
+      System.currentTimeMillis()
+    );
+    write(
+      Store.obj(
+        "type",
+        "mode",
+        "value",
+        a.mode,
+        "until",
+        a.until,
+        "reason",
+        a.publicReason(),
+        "language",
+        a.language,
+        "calls",
+        CallRules.runtime(s)
+      )
+    );
+  }
+
   static volatile long sleepUntil;
   static volatile int notes;
   static volatile String mode = "off",
@@ -110,32 +146,33 @@ public class ChatService extends Service {
         status = "Cannot update priority rules; agent stopped.";
         stopSelf();
       }
-    } else if ("mode".equals(action) && linked) {
-      String m = intent.getStringExtra("value");
-      if (m != null && m.matches("off|busy|sleeping|driving")) try {
-        long ms = intent.getLongExtra("durationMs", 0);
-        write(
-          Store.obj(
-            "type",
-            "mode",
-            "value",
-            m,
-            "calls",
-            CallRules.runtime(new Store(this)),
-            "durationMs",
-            ms,
-            "language",
-            new Store(this).p.getString("chat.language", "en")
-          )
-        );
+    } else if ("sync".equals(action) || "mode".equals(action)) {
+      try {
+        // Notification Pause is also a durable user selection.
+        if (
+          "mode".equals(action) && "off".equals(intent.getStringExtra("value"))
+        ) {
+          Store s = new Store(this);
+          Availability.set(
+            s.p,
+            s.get("chat.owner"),
+            "off",
+            0,
+            "",
+            false,
+            System.currentTimeMillis()
+          );
+        }
+        syncSelection();
       } catch (Exception e) {
-        status = "Could not change mode. Agent stopped.";
+        status = "Could not apply saved selection. Agent stopped.";
         stopSelf();
       }
     } else if ("stop".equals(action)) {
       status = "Stopped. No auto-replies.";
       stopSelf();
     }
+    changed();
     return START_NOT_STICKY;
   }
 
@@ -268,6 +305,7 @@ public class ChatService extends Service {
                 sleepUntil = 0;
                 code = "";
                 status = v;
+                syncSelection();
                 break;
               case "offline":
                 linked = false;
@@ -306,6 +344,7 @@ public class ChatService extends Service {
               default:
                 continue;
             }
+            changed();
             if (
               type.equals("mode") ||
               type.equals("offline") ||
@@ -339,6 +378,7 @@ public class ChatService extends Service {
     } catch (IOException ignored) {}
     if (child != null) child.destroyForcibly();
     running = false;
+    changed();
     stopForeground(STOP_FOREGROUND_REMOVE);
     super.onDestroy();
   }

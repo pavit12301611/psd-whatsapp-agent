@@ -17,6 +17,36 @@ public class ChatDesk extends Activity {
   LinearLayout page;
   TextView badge, activity, pair, scope, timer, briefing;
   Button link, settings, forget;
+  TextView signal, reasonLine;
+  String paintedMode = null;
+  final android.content.SharedPreferences.OnSharedPreferenceChangeListener prefChange =
+    (prefs, key) -> refreshSoon();
+
+  void refreshSoon() {
+    if (ChatService.observer != null) {
+      ui.removeCallbacks(tick);
+      ui.post(tick);
+    }
+  }
+
+  Availability saved() {
+    return Availability.get(
+      store.p,
+      store.get("chat.owner"),
+      System.currentTimeMillis()
+    );
+  }
+
+  android.graphics.drawable.Drawable surface(int fill, int border) {
+    GradientDrawable shape = bg(fill, 14);
+    shape.setStroke(dp(1), border);
+    return new android.graphics.drawable.RippleDrawable(
+      android.content.res.ColorStateList.valueOf(0x24745acf),
+      shape,
+      null
+    );
+  }
+
   String[] values = { "off", "busy", "sleeping", "driving" };
   Button[] modes = new Button[4];
   final Handler ui = new Handler(Looper.getMainLooper());
@@ -54,9 +84,19 @@ public class ChatDesk extends Activity {
     b.setText(label);
     b.setAllCaps(false);
     b.setTextColor(ink);
-    b.setTextSize(14);
+    b.setTextSize(15);
+    b.setGravity(Gravity.CENTER);
+    b.setMinHeight(dp(48));
+    b.setPadding(dp(10), dp(9), dp(10), dp(9));
+    b.setBackground(surface(0xfff7f5fc, 0xffddd6ea));
+    b.setStateListAnimator(null);
     b.setOnClickListener(v -> action.run());
-    l.addView(b);
+    LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+      l.getOrientation() == LinearLayout.VERTICAL ? -1 : -2,
+      -2
+    );
+    params.setMargins(0, dp(3), 0, dp(3));
+    l.addView(b, params);
     return b;
   }
 
@@ -75,8 +115,15 @@ public class ChatDesk extends Activity {
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
     ScrollView scroll = new ScrollView(this);
     scroll.setBackgroundColor(0xfff7f6fb);
-    page = box(0xfff7f6fb, 22);
-    scroll.addView(page);
+    int width = getResources().getConfiguration().screenWidthDp;
+    page = box(0xfff7f6fb, width < 360 ? 14 : 22);
+    android.widget.FrameLayout.LayoutParams body =
+      new android.widget.FrameLayout.LayoutParams(
+        width > 680 ? dp(680) : -1,
+        -2,
+        Gravity.TOP | Gravity.CENTER_HORIZONTAL
+      );
+    scroll.addView(page, body);
     setContentView(scroll);
     text(page, "MIMI   /   PERSONAL WORKSPACE", 11, purple, true);
     gap(page, 5);
@@ -85,41 +132,52 @@ public class ChatDesk extends Activity {
     gap(page, 20);
     LinearLayout hero = box(0xff493176, 20);
     page.addView(hero);
-    text(hero, "LINKED DEVICE  •  PHONE ONLY", 11, 0xffd9fab0, true);
+    GradientDrawable wash = new GradientDrawable(
+      GradientDrawable.Orientation.TL_BR,
+      new int[] { 0xff372452, 0xff62449a }
+    );
+    wash.setCornerRadius(dp(21));
+    hero.setBackground(wash);
+    signal = text(hero, "YOUR STATUS   /   OFFLINE", 12, 0xffdef6ac, true);
+    signal.setLetterSpacing(.06f);
     gap(hero, 10);
     badge = text(hero, "Paused", 27, Color.WHITE, true);
     gap(hero, 5);
+    reasonLine = text(hero, "", 15, Color.WHITE, false);
     scope = text(hero, "", 14, 0xffe2d9f2, false);
     timer = text(hero, "", 15, 0xffd9fab0, true);
     gap(page, 18);
     text(page, "Availability", 22, ink, true);
     text(
       page,
-      "Pick an away mode to answer new personal texts. No broadcast is sent.",
+      "Your selection stays on this phone, even offline. Mimi uses it when WhatsApp is linked.",
       14,
       muted,
       false
     );
     gap(page, 8);
-    for (int r = 0; r < 2; r++) {
+    float font = getResources().getConfiguration().fontScale;
+    int cols = width / font < 330 ? 1 : width / font >= 620 ? 4 : 2;
+    for (int i = 0; i < 4; ) {
       LinearLayout row = new LinearLayout(this);
       page.addView(row);
-      for (int c = 0; c < 2; c++) {
-        final int i = 2 * r + c;
-        Button b = (modes[i] = button(
+      for (int c = 0; c < cols && i < 4; c++, i++) {
+        final int idx = i;
+        Button tile = (modes[i] = button(
           row,
           new String[] { "Available / Pause", "Busy", "Sleeping", "Driving" }[
             i
           ],
-          () -> select(values[i])
+          () -> select(values[idx])
         ));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams cell = new LinearLayout.LayoutParams(
           0,
-          dp(50),
+          -2,
           1
         );
-        lp.setMargins(dp(2), dp(3), dp(2), dp(3));
-        b.setLayoutParams(lp);
+        cell.setMargins(dp(3), dp(3), dp(3), dp(3));
+        tile.setLayoutParams(cell);
+        tile.setMinHeight(dp(54));
       }
     }
     gap(page, 18);
@@ -166,7 +224,19 @@ public class ChatDesk extends Activity {
   }
 
   void select(String m) {
-    if (!ChatService.linked) return;
+    if (store.get("chat.owner").isEmpty()) {
+      Toast.makeText(
+        this,
+        "Set up your Business number first.",
+        Toast.LENGTH_SHORT
+      ).show();
+      setup();
+      return;
+    }
+    if (m.equals("busy")) {
+      busyPicker();
+      return;
+    }
     if (m.equals("sleeping")) {
       sleepPicker();
       return;
@@ -175,12 +245,60 @@ public class ChatDesk extends Activity {
   }
 
   void activate(String m, long durationMs) {
-    if (ChatService.linked) startService(
-      new Intent(this, ChatService.class)
-        .setAction("mode")
-        .putExtra("value", m)
-        .putExtra("durationMs", durationMs)
+    saveMode(m, durationMs, "", false);
+  }
+
+  void saveMode(String m, long durationMs, String why, boolean share) {
+    Availability.set(
+      store.p,
+      store.get("chat.owner"),
+      m,
+      durationMs,
+      why,
+      share,
+      System.currentTimeMillis()
     );
+    if (ChatService.running) startService(
+      new Intent(this, ChatService.class).setAction("sync")
+    );
+    refreshSoon();
+  }
+
+  void busyPicker() {
+    Availability previous = saved();
+    ScrollView sc = new ScrollView(this);
+    LinearLayout panel = box(Color.WHITE, 18);
+    sc.addView(panel);
+    text(panel, "Busy reason · optional", 16, ink, true);
+    EditText why = new EditText(this);
+    why.setSingleLine();
+    why.setHint("For example: In a meeting until 4 pm");
+    why.setFilters(new android.text.InputFilter[] {
+      new android.text.InputFilter.LengthFilter(120),
+    });
+    why.setText(previous.reason);
+    panel.addView(why);
+    CheckBox share = new CheckBox(this);
+    share.setText("Include reason in Busy greetings and Call Shield texts");
+    share.setChecked(previous.share);
+    panel.addView(share);
+    text(
+      panel,
+      "Unchecked: only you see the reason. Leave it blank for the usual Busy message.",
+      13,
+      muted,
+      false
+    );
+    AlertDialog d = new AlertDialog.Builder(this)
+      .setTitle("Set Busy status")
+      .setView(sc)
+      .setPositiveButton("Save Busy", (x, k) ->
+        saveMode("busy", 0, why.getText().toString(), share.isChecked())
+      )
+      .setNegativeButton("Cancel", null)
+      .create();
+    d.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+    d.show();
   }
 
   void sleepPicker() {
@@ -300,6 +418,7 @@ public class ChatDesk extends Activity {
       TextView sample = text(panel, "", 16, ink, false);
       Runnable update = () -> {
         String lang = language.getSelectedItemPosition() == 1 ? "hi" : "en";
+        Availability a = saved();
         sample.setText(
           greetings
             .optJSONObject(lang)
@@ -307,7 +426,10 @@ public class ChatDesk extends Activity {
               samples[mode.getSelectedItemPosition()].toLowerCase(
                 java.util.Locale.ROOT
               )
-            )
+            ) +
+            (mode.getSelectedItemPosition() == 1 && a.share
+              ? (lang.equals("hi") ? "\nWajah: " : "\nReason: ") + a.reason
+              : "")
         );
       };
       AdapterView.OnItemSelectedListener listen =
@@ -354,25 +476,32 @@ public class ChatDesk extends Activity {
     public void run() {
       boolean live = ChatService.running,
         linked = ChatService.linked;
-      String m = ChatService.mode,
+      Availability selected = saved();
+      String m = selected.mode,
         code = ChatService.code;
-      badge.setText(
-        !live
-          ? "Desk is offline"
-          : !linked
-            ? "Connecting…"
-            : m.equals("off")
-              ? "Linked · Paused"
-              : "Pavit is " + m
+      signal.setText(
+        linked
+          ? "YOUR STATUS   /   LINKED"
+          : live
+            ? "YOUR STATUS   /   CONNECTING"
+            : "YOUR STATUS   /   OFFLINE"
+      );
+      badge.setText(m.equals("off") ? "Available · Paused" : "Pavit is " + m);
+      reasonLine.setVisibility(
+        selected.reason.isEmpty() ? View.GONE : View.VISIBLE
+      );
+      if (!selected.reason.isEmpty()) reasonLine.setText(
+        (selected.share ? "Shared reason: " : "Private reason: ") +
+          selected.reason
       );
       scope.setText(
         "all-direct".equals(store.p.getString("chat.scope", "all-direct"))
           ? "Audience: anyone who texts you directly."
           : "Audience: one test number only."
       );
-      long until = ChatService.sleepUntil;
+      long until = selected.until;
       timer.setVisibility(
-        until > 0 && linked && m.equals("sleeping") ? View.VISIBLE : View.GONE
+        until > 0 && m.equals("sleeping") ? View.VISIBLE : View.GONE
       );
       if (until > 0) {
         long secs = Math.max(
@@ -400,22 +529,41 @@ public class ChatDesk extends Activity {
       forget.setVisibility(
         !live && !store.get("chat.owner").isEmpty() ? View.VISIBLE : View.GONE
       );
-      for (int i = 0; i < 4; i++) {
-        modes[i].setEnabled(linked);
-        modes[i].setBackground(
-          bg(m.equals(values[i]) ? 0xffe1d5f4 : 0xffefedf3, 10)
-        );
+      if (!m.equals(paintedMode)) {
+        paintedMode = m;
+        for (int i = 0; i < 4; i++) {
+          boolean active = m.equals(values[i]);
+          Button tile = modes[i];
+          tile.setSelected(active);
+          tile.setTypeface(
+            Typeface.DEFAULT,
+            active ? Typeface.BOLD : Typeface.NORMAL
+          );
+          tile.setTextColor(active ? Color.WHITE : ink);
+          tile.setBackground(
+            surface(
+              active ? 0xff604498 : Color.WHITE,
+              active ? purple : 0xffded8e9
+            )
+          );
+        }
       }
-      ui.postDelayed(this, 600);
+      ui.removeCallbacks(this);
+      if (until > 0) ui.postDelayed(this, 1000);
     }
   };
+  final Runnable updateDesk = () -> refreshSoon();
 
   protected void onResume() {
     super.onResume();
-    ui.post(tick);
+    ChatService.observer = updateDesk;
+    store.p.registerOnSharedPreferenceChangeListener(prefChange);
+    refreshSoon();
   }
 
   protected void onPause() {
+    if (ChatService.observer == updateDesk) ChatService.observer = null;
+    store.p.unregisterOnSharedPreferenceChangeListener(prefChange);
     ui.removeCallbacks(tick);
     super.onPause();
   }
@@ -596,6 +744,7 @@ public class ChatDesk extends Activity {
             "Could not clear session. Use Android app storage settings.";
           return;
         }
+        Availability.forget(store.p, owner);
         new FollowUps(store, owner).forget();
         store.p
           .edit()

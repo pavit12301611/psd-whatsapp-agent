@@ -256,3 +256,67 @@ test("ordinary messages mentioning urgency are not copied into the local queue",
     );
   assert.deepEqual(notes, [null, null]);
 });
+
+test("relink applies latest saved Busy reason only to fresh work, no replay or broadcast", async () => {
+  let now = T;
+  const e = engine({
+    owner,
+    scope: "all-direct",
+    provider: "test",
+    clock: () => now,
+  });
+  const out = [];
+  e.connected(true);
+  e.select("driving");
+  e.connected(false);
+  now += 60000;
+  assert.equal(e.active, false);
+  e.connected(true);
+  assert.equal(
+    e.restore({
+      value: "busy",
+      reason: " In a meeting\n until noon ",
+      language: "en",
+    }),
+    "busy",
+  );
+  const h = (m) =>
+    e.handle(
+      "notify",
+      m,
+      () => null,
+      async (j, t) => out.push(t),
+    );
+  await h(msg(a, "old", "hey", T));
+  assert.deepEqual(out, []);
+  await h(msg(a, "fresh", "hi", now));
+  assert.match(out.at(-1), /Reason: In a meeting until noon$/);
+  e.connected(false);
+  e.connected(true);
+  e.restore({ value: "off" });
+  assert.equal(e.active, false);
+});
+test("restored sleep resumes remaining time, never extends or revives expired timer", () => {
+  let now = T;
+  const e = engine({
+    owner,
+    clock: () => now,
+    later: () => 1,
+    cancel: () => {},
+  });
+  const saved = {
+    value: "sleeping",
+    until: T + 60000,
+    reason: "must not leak",
+  };
+  now += 30000;
+  e.connected(true);
+  e.restore(saved);
+  assert.equal(e.until, T + 60000);
+  assert.equal(e.callState().reason, "");
+  e.connected(false);
+  now += 31000;
+  e.connected(true);
+  assert.equal(e.restore(saved), "off");
+  assert.equal(e.active, false);
+});

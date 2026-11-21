@@ -49,7 +49,17 @@ export async function incoming(
 }
 
 export const signature = "Mimi — Pavit's own AI bot:";
-export function away(mode, language = "en") {
+export function reasonSuffix(mode, language, reason) {
+  const text =
+    mode === "busy" && typeof reason === "string"
+      ? reason
+          .replace(/[\s\u0000-\u001f]+/g, " ")
+          .trim()
+          .slice(0, 120)
+      : "";
+  return text ? (language === "hi" ? "\nWajah: " : "\nReason: ") + text : "";
+}
+export function away(mode, language = "en", reason = "") {
   if (!["busy", "sleeping", "driving"].includes(mode))
     throw Error("Choose busy, sleeping or driving.");
   if (language === "hi") {
@@ -58,9 +68,9 @@ export function away(mode, language = "en") {
       sleeping: "so raha hai",
       driving: "drive kar raha hai",
     }[mode];
-    return `${signature} Pavit abhi ${status}. Maine uske liye tumhara message chhod diya hai. Free hote hi woh reply karega. Pavit ko aur kya batana hai? Mujhe text kar do. Options ke liye /help likho.`;
+    return `${signature} Pavit abhi ${status}. Maine uske liye tumhara message chhod diya hai. Free hote hi woh reply karega. Pavit ko aur kya batana hai? Mujhe text kar do. Options ke liye /help likho.${reasonSuffix(mode, language, reason)}`;
   }
-  return `${signature} Pavit is ${mode} right now. I’ve left your message for him. He’ll reply as soon as he’s free. Text me what you’d like Pavit to know, and I’ll handle the rest. Send /help for options.`;
+  return `${signature} Pavit is ${mode} right now. I’ve left your message for him. He’ll reply as soon as he’s free. Text me what you’d like Pavit to know, and I’ll handle the rest. Send /help for options.${reasonSuffix(mode, language, reason)}`;
 }
 
 // One tester, no on-disk transcript. One instance across socket reconnects.
@@ -69,9 +79,10 @@ export function conversation({
   mode,
   generate,
   language = "en",
+  reason = "",
   now = Date.now,
 }) {
-  const greeting = away(mode, language);
+  const greeting = away(mode, language, reason);
   let consent = false,
     greeted = false,
     stopped = false,
