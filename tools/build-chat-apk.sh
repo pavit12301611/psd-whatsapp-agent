@@ -15,7 +15,7 @@ from pathlib import Path
 from zipfile import ZipFile,ZIP_DEFLATED
 with ZipFile('build/chat-apk/assets/chat-runtime.zip','w',ZIP_DEFLATED) as z:
     base=Path('chat')
-    for file in [*(base/name for name in ('mobile.mjs','mobile-engine.mjs','routing.mjs','providers.mjs','package.json')),*(base/'node_modules').rglob('*')]:
+    for file in [*(base/name for name in ('mobile.mjs','mobile-engine.mjs','call-shield.mjs','routing.mjs','providers.mjs','package.json')),*(base/'node_modules').rglob('*')]:
         if not file.is_file() or file.is_symlink() or '.bin' in file.parts or file.suffix in ('.ts','.map'):continue
         z.write(file,file.relative_to(base))
     z.write('licenses/Bun-1.4.5.md','licenses/Bun-1.4.5.md')

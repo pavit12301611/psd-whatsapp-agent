@@ -129,6 +129,9 @@ public class ChatDesk extends Activity {
     gap(personal, 6);
     briefing = text(personal, "", 15, ink, false);
     button(personal, "Preview greeting & language", this::studio);
+    button(personal, "Call Shield & priority callers", () ->
+      CallRules.edit(this)
+    );
     button(personal, "Follow-up inbox", () -> {
       String owner = store.get("chat.owner");
       if (owner.isEmpty()) {
@@ -596,6 +599,7 @@ public class ChatDesk extends Activity {
         new FollowUps(store, owner).forget();
         store.p
           .edit()
+          .remove(CallRules.key(owner))
           .remove("chat.owner")
           .remove("chat.scope")
           .remove("chat.provider")

@@ -119,6 +119,17 @@ export function engine({
     get until() {
       return until;
     },
+    callState() {
+      return available()
+        ? {
+            generation,
+            mode,
+            since,
+            language,
+            optedOut: (jid) => optedOut.has(jid),
+          }
+        : null;
+    },
     get active() {
       return available();
     },

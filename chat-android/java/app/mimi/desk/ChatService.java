@@ -96,6 +96,20 @@ public class ChatService extends Service {
       status = "Preparing chat engine on this phone…";
       startForeground(ID, notification());
       new Thread(this::launch, "Mimi-chat").start();
+    } else if ("calls".equals(action) && linked) {
+      try {
+        write(
+          Store.obj(
+            "type",
+            "calls",
+            "calls",
+            CallRules.runtime(new Store(this))
+          )
+        );
+      } catch (Exception e) {
+        status = "Cannot update priority rules; agent stopped.";
+        stopSelf();
+      }
     } else if ("mode".equals(action) && linked) {
       String m = intent.getStringExtra("value");
       if (m != null && m.matches("off|busy|sleeping|driving")) try {
@@ -106,6 +120,8 @@ public class ChatService extends Service {
             "mode",
             "value",
             m,
+            "calls",
+            CallRules.runtime(new Store(this)),
             "durationMs",
             ms,
             "language",
@@ -206,6 +222,8 @@ public class ChatService extends Service {
           "init",
           "owner",
           s.get("chat.owner"),
+          "calls",
+          CallRules.runtime(s),
           "scope",
           s.p.getString("chat.scope", "all-direct"),
           "provider",

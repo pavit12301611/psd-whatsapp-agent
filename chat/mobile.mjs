@@ -10,12 +10,14 @@ import makeSocket, {
 import pino from "pino";
 import { number } from "./routing.mjs";
 import { engine } from "./mobile-engine.mjs";
+import { callShield } from "./call-shield.mjs";
 import { ai } from "./providers.mjs";
 process.umask(0o077);
 const emit = (type, value, until = 0) =>
   process.stdout.write(JSON.stringify({ type, value, until }) + "\n");
 let sock,
   core,
+  shield,
   started = false,
   closing = false,
   retries = 0,
@@ -51,6 +53,13 @@ async function init(config) {
     },
     onNote: (item) => emit("note", item),
   });
+  shield = callShield({
+    owner,
+    scope,
+    state: () => (closing ? null : core.callState()),
+    report: (s) => emit("status", s),
+  });
+  shield.configure(config.calls);
   const folder = join(process.env.HOME, "sessions", owner);
   await mkdir(folder, { recursive: true, mode: 0o700 });
   const { state, saveCreds } = await useMultiFileAuthState(folder);
@@ -109,6 +118,18 @@ async function init(config) {
         );
       }
     });
+    s.ev.on("call", (calls) => {
+      if (sock !== s || closing) return;
+      for (const c of calls)
+        shield
+          .event(c, {
+            resolve: (jid) => s.signalRepository.lidMapping.getPNForLID(jid),
+            reject: (id, from) => s.rejectCall(id, from),
+            send: (jid, text) =>
+              s.sendMessage(jid, { text, linkPreview: null }),
+          })
+          .catch(() => emit("status", "Call handling unavailable."));
+    });
     s.ev.on("messages.upsert", ({ type, messages }) => {
       if (!core.active || type !== "notify" || sock !== s) return;
       for (const raw of messages) {
@@ -147,7 +168,10 @@ input.on("line", (line) => {
     if (m.type === "init" && !started) {
       started = true;
       init(m).catch(() => fail("Could not initialise local chat session."));
+    } else if (m.type === "calls" && shield) {
+      shield.configure(m.calls);
     } else if (m.type === "mode" && core) {
+      shield.configure(m.calls);
       const mode = core.select(m.value, m.durationMs, m.language);
       emit("mode", mode, core.until);
     }
