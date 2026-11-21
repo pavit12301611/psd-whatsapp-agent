@@ -15,7 +15,7 @@ public class ChatDesk extends Activity {
 
   Store store;
   LinearLayout page;
-  TextView badge, activity, pair, scope;
+  TextView badge, activity, pair, scope, timer, briefing;
   Button link, settings, forget;
   String[] values = { "off", "busy", "sleeping", "driving" };
   Button[] modes = new Button[4];
@@ -81,7 +81,7 @@ public class ChatDesk extends Activity {
     text(page, "MIMI   /   PERSONAL WORKSPACE", 11, purple, true);
     gap(page, 5);
     text(page, "Chat desk", 35, ink, true);
-    text(page, "Pavit’s WhatsApp Business receptionist", 15, muted, false);
+    text(page, "Mimi — Pavit's own AI bot", 15, muted, false);
     gap(page, 20);
     LinearLayout hero = box(0xff493176, 20);
     page.addView(hero);
@@ -90,6 +90,7 @@ public class ChatDesk extends Activity {
     badge = text(hero, "Paused", 27, Color.WHITE, true);
     gap(hero, 5);
     scope = text(hero, "", 14, 0xffe2d9f2, false);
+    timer = text(hero, "", 15, 0xffd9fab0, true);
     gap(page, 18);
     text(page, "Availability", 22, ink, true);
     text(
@@ -122,6 +123,13 @@ public class ChatDesk extends Activity {
       }
     }
     gap(page, 18);
+    LinearLayout personal = box(0xffeee9f8, 16);
+    page.addView(personal);
+    text(personal, "REPLY STUDIO", 11, purple, true);
+    gap(personal, 6);
+    briefing = text(personal, "", 15, ink, false);
+    button(personal, "Preview greeting & language", this::studio);
+    gap(page, 14);
     LinearLayout card = box(Color.WHITE, 16);
     page.addView(card);
     text(card, "CONNECTION", 11, purple, true);
@@ -143,9 +151,188 @@ public class ChatDesk extends Activity {
   }
 
   void select(String m) {
+    if (!ChatService.linked) return;
+    if (m.equals("sleeping")) {
+      sleepPicker();
+      return;
+    }
+    activate(m, 0);
+  }
+
+  void activate(String m, long durationMs) {
     if (ChatService.linked) startService(
-      new Intent(this, ChatService.class).setAction("mode").putExtra("value", m)
+      new Intent(this, ChatService.class)
+        .setAction("mode")
+        .putExtra("value", m)
+        .putExtra("durationMs", durationMs)
     );
+  }
+
+  void sleepPicker() {
+    String[] choices = {
+      "Power nap · 20 minutes",
+      "1 hour",
+      "6 hours",
+      "8 hours",
+      "Custom minutes…",
+      "Until a wake-up time…",
+      "Until I pause manually",
+    };
+    new AlertDialog.Builder(this)
+      .setTitle("Sleep timer")
+      .setItems(choices, (d, i) -> {
+        if (i < 4) {
+          activate("sleeping", new int[] { 20, 60, 360, 480 }[i] * 60000L);
+          return;
+        }
+        if (i == 6) {
+          activate("sleeping", 0);
+          return;
+        }
+        if (i == 5) {
+          java.util.Calendar now = java.util.Calendar.getInstance();
+          new TimePickerDialog(
+            this,
+            (view, h, min) -> {
+              java.util.Calendar at = java.util.Calendar.getInstance();
+              at.set(java.util.Calendar.HOUR_OF_DAY, h);
+              at.set(java.util.Calendar.MINUTE, min);
+              at.set(java.util.Calendar.SECOND, 0);
+              at.set(java.util.Calendar.MILLISECOND, 0);
+              long t = System.currentTimeMillis();
+              if (at.getTimeInMillis() <= t) at.add(
+                java.util.Calendar.DAY_OF_MONTH,
+                1
+              );
+              activate("sleeping", at.getTimeInMillis() - t);
+            },
+            now.get(java.util.Calendar.HOUR_OF_DAY),
+            now.get(java.util.Calendar.MINUTE),
+            android.text.format.DateFormat.is24HourFormat(this)
+          ).show();
+          return;
+        }
+        EditText input = new EditText(this);
+        input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        input.setHint("1 to 1440 minutes");
+        input.setSingleLine();
+        AlertDialog custom = new AlertDialog.Builder(this)
+          .setTitle("Sleep for how long?")
+          .setView(input)
+          .setNegativeButton("Cancel", null)
+          .setPositiveButton("Start timer", null)
+          .create();
+        custom.show();
+        custom.getButton(-1).setOnClickListener(v -> {
+          int minutes = 0;
+          try {
+            minutes = Integer.parseInt(input.getText().toString().trim());
+          } catch (NumberFormatException ignored) {}
+          if (minutes < 1 || minutes > 1440) {
+            input.setError("Choose 1–1440 minutes");
+            return;
+          }
+          custom.dismiss();
+          activate("sleeping", minutes * 60000L);
+        });
+      })
+      .setNegativeButton("Cancel", null)
+      .show();
+  }
+
+  void studio() {
+    try (
+      java.io.InputStream in = getAssets().open("greetings.json");
+      java.util.Scanner sc = new java.util.Scanner(in, "UTF-8")
+    ) {
+      org.json.JSONObject greetings = new org.json.JSONObject(
+        sc.useDelimiter("\\A").next()
+      );
+      LinearLayout panel = box(Color.WHITE, 16);
+      Spinner language = new Spinner(this),
+        mode = new Spinner(this);
+      String[] languages = { "English", "Hinglish" },
+        samples = { "Sleeping", "Busy", "Driving" };
+      language.setAdapter(
+        new ArrayAdapter<String>(
+          this,
+          android.R.layout.simple_spinner_dropdown_item,
+          languages
+        )
+      );
+      mode.setAdapter(
+        new ArrayAdapter<String>(
+          this,
+          android.R.layout.simple_spinner_dropdown_item,
+          samples
+        )
+      );
+      text(panel, "Greeting language", 13, muted, true);
+      panel.addView(language);
+      text(panel, "Preview mode (does not activate replies)", 13, muted, true);
+      panel.addView(mode);
+      language.setSelection(
+        "hi".equals(store.p.getString("chat.language", "en")) ? 1 : 0
+      );
+      mode.setSelection(
+        ChatService.mode.equals("busy")
+          ? 1
+          : ChatService.mode.equals("driving")
+            ? 2
+            : 0
+      );
+      gap(panel, 10);
+      TextView sample = text(panel, "", 16, ink, false);
+      Runnable update = () -> {
+        String lang = language.getSelectedItemPosition() == 1 ? "hi" : "en";
+        sample.setText(
+          greetings
+            .optJSONObject(lang)
+            .optString(
+              samples[mode.getSelectedItemPosition()].toLowerCase(
+                java.util.Locale.ROOT
+              )
+            )
+        );
+      };
+      AdapterView.OnItemSelectedListener listen =
+        new AdapterView.OnItemSelectedListener() {
+          public void onNothingSelected(AdapterView<?> p) {}
+
+          public void onItemSelected(AdapterView<?> p, View v, int i, long id) {
+            update.run();
+          }
+        };
+      language.setOnItemSelectedListener(listen);
+      mode.setOnItemSelectedListener(listen);
+      update.run();
+      gap(panel, 10);
+      text(
+        panel,
+        "Applies next time you select an away mode. AI opt-in instructions are added separately when enabled.",
+        12,
+        muted,
+        false
+      );
+      ScrollView scroll = new ScrollView(this);
+      scroll.addView(panel);
+      new AlertDialog.Builder(this)
+        .setTitle("Mimi’s reply preview")
+        .setView(scroll)
+        .setNegativeButton("Cancel", null)
+        .setPositiveButton("Save language", (d, k) ->
+          store.p
+            .edit()
+            .putString(
+              "chat.language",
+              language.getSelectedItemPosition() == 1 ? "hi" : "en"
+            )
+            .apply()
+        )
+        .show();
+    } catch (Exception e) {
+      Toast.makeText(this, "Preview unavailable", Toast.LENGTH_SHORT).show();
+    }
   }
 
   final Runnable tick = new Runnable() {
@@ -167,6 +354,28 @@ public class ChatDesk extends Activity {
         "all-direct".equals(store.p.getString("chat.scope", "all-direct"))
           ? "Audience: anyone who texts you directly."
           : "Audience: one test number only."
+      );
+      long until = ChatService.sleepUntil;
+      timer.setVisibility(
+        until > 0 && linked && m.equals("sleeping") ? View.VISIBLE : View.GONE
+      );
+      if (until > 0) {
+        long secs = Math.max(
+          0,
+          (until - System.currentTimeMillis() + 999) / 1000
+        );
+        timer.setText(
+          String.format(
+            java.util.Locale.getDefault(),
+            "Auto-pause in %d:%02d:%02d",
+            secs / 3600,
+            (secs / 60) % 60,
+            secs % 60
+          )
+        );
+      }
+      briefing.setText(
+        ChatService.notes + " notes left for Pavit this session"
       );
       activity.setText(ChatService.status);
       pair.setText(code);

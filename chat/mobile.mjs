@@ -12,8 +12,8 @@ import { number } from "./routing.mjs";
 import { engine } from "./mobile-engine.mjs";
 import { ai } from "./providers.mjs";
 process.umask(0o077);
-const emit = (type, value) =>
-  process.stdout.write(JSON.stringify({ type, value }) + "\n");
+const emit = (type, value, until = 0) =>
+  process.stdout.write(JSON.stringify({ type, value, until }) + "\n");
 let sock,
   core,
   started = false,
@@ -45,6 +45,11 @@ async function init(config) {
     provider,
     generate: (ts) => ai(provider, config.key, ts),
     report: (s) => emit("status", s),
+    onExpire: () => {
+      emit("mode", "off");
+      emit("status", "Sleep timer finished. Auto-replies are paused.");
+    },
+    onNote: () => emit("note", ""),
   });
   const folder = join(process.env.HOME, "sessions", owner);
   await mkdir(folder, { recursive: true, mode: 0o700 });
@@ -143,7 +148,8 @@ input.on("line", (line) => {
       started = true;
       init(m).catch(() => fail("Could not initialise local chat session."));
     } else if (m.type === "mode" && core) {
-      emit("mode", core.select(m.value));
+      const mode = core.select(m.value, m.durationMs, m.language);
+      emit("mode", mode, core.until);
     }
   } catch {
     fail("Invalid local configuration.");

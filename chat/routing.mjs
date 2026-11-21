@@ -48,16 +48,30 @@ export async function incoming(
   return { id: k.id, jid, text: text.trim().slice(0, 2000) };
 }
 
-export const signature = "psd-Pavit's ai model --";
-export function away(mode) {
+export const signature = "Mimi — Pavit's own AI bot:";
+export function away(mode, language = "en") {
   if (!["busy", "sleeping", "driving"].includes(mode))
     throw Error("Choose busy, sleeping or driving.");
+  if (language === "hi") {
+    const status = {
+      busy: "busy hai",
+      sleeping: "so raha hai",
+      driving: "drive kar raha hai",
+    }[mode];
+    return `${signature} Pavit abhi ${status}. Maine uske liye tumhara message chhod diya hai. Free hote hi woh reply karega. Pavit ko aur kya batana hai? Mujhe text kar do.`;
+  }
   return `${signature} Pavit is ${mode} right now. I’ve left your message for him. He’ll reply as soon as he’s free. Text me what you’d like Pavit to know, and I’ll handle the rest.`;
 }
 
 // One tester, no on-disk transcript. One instance across socket reconnects.
-export function conversation({ provider, mode, generate, now = Date.now }) {
-  const greeting = away(mode);
+export function conversation({
+  provider,
+  mode,
+  generate,
+  language = "en",
+  now = Date.now,
+}) {
+  const greeting = away(mode, language);
   let consent = false,
     greeted = false,
     stopped = false,
@@ -117,7 +131,11 @@ export function conversation({ provider, mode, generate, now = Date.now }) {
       return "greeted";
     }
     if (!consent) {
-      await send(`${signature} I’ve added that to Pavit’s notes. Thank you.`);
+      await send(
+        language === "hi"
+          ? `${signature} Ye bhi Pavit ke notes mein add kar diya. Shukriya!`
+          : `${signature} I’ve added that to Pavit’s notes. Thank you.`,
+      );
       return "noted";
     }
     const user = { role: "user", content: m.text };

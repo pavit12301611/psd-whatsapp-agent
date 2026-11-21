@@ -9,6 +9,7 @@ if [[ ! -f "$TGZ" ]]; then (cd "$B/downloads" && npm pack --silent @oven/bun-lin
 [[ $(openssl dgst -sha512 -binary "$TGZ" | openssl base64 -A) == SI502JpXyu6em6y8E3F48GO3LwjYXSG3DWEOPhf9LXJWjjnPG9OwrWajtM91saa2vAixZ0ErlZa8UzNORcgcyQ== ]]
 tar -xOf "$TGZ" package/bin/bun > "$B/lib/arm64-v8a/libmimirun.so"; chmod 755 "$B/lib/arm64-v8a/libmimirun.so"
 (cd chat && npm ci --omit=optional --no-audit --no-fund && npm test)
+node --input-type=module -e 'import {away} from "./chat/routing.mjs";console.log(JSON.stringify(Object.fromEntries(["en","hi"].map(l=>[l,Object.fromEntries(["busy","sleeping","driving"].map(m=>[m,away(m,l)]))]))))' > "$B/assets/greetings.json"
 python3 - <<'PY'
 from pathlib import Path
 from zipfile import ZipFile,ZIP_DEFLATED

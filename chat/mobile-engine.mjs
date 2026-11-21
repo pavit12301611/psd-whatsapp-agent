@@ -9,6 +9,10 @@ export function engine({
   generate,
   report = () => {},
   clock = Date.now,
+  later = setTimeout,
+  cancel = clearTimeout,
+  onExpire = () => {},
+  onNote = () => {},
 }) {
   let generation = 0,
     mode = "off",
@@ -16,10 +20,38 @@ export function engine({
     online = false;
   const chats = new Map(),
     optedOut = new Set();
-  function select(value) {
+  let until = 0,
+    alarm,
+    language = "en";
+  function expire(epoch) {
+    if (epoch !== generation || !until) return;
+    select("off");
+    onExpire();
+  }
+  function available() {
+    // A suspended phone may deliver timers late. Guard every send as well.
+    if (until && clock() >= until) expire(generation);
+    return online && mode !== "off";
+  }
+  function select(value, durationMs = 0, lang = "en") {
+    if (alarm != null) cancel(alarm);
+    alarm = undefined;
+    until = 0;
+    language = lang === "hi" ? "hi" : "en";
+    if (
+      !Number.isInteger(durationMs) ||
+      durationMs < 0 ||
+      durationMs > 25 * 3600000
+    )
+      value = "off";
     generation++;
     mode =
       online && ["busy", "sleeping", "driving"].includes(value) ? value : "off";
+    if (mode === "sleeping" && durationMs > 0) {
+      until = clock() + durationMs;
+      const epoch = generation;
+      alarm = later(() => expire(epoch), durationMs);
+    }
     since = Math.ceil(clock() / 1000) * 1000;
     chats.clear();
     return mode;
@@ -29,14 +61,8 @@ export function engine({
     select("off");
   }
   async function handle(type, raw, resolveLid, send, arrival = generation) {
-    if (
-      type !== "notify" ||
-      !online ||
-      mode === "off" ||
-      arrival !== generation
-    )
-      return;
-    const valid = () => online && mode !== "off" && arrival === generation;
+    if (type !== "notify" || !available() || arrival !== generation) return;
+    const valid = () => available() && arrival === generation;
     if (Number(raw.messageTimestamp) * 1000 < since) return;
     const m = await incoming(raw, scope, since, resolveLid, clock());
     if (!m || !valid()) return;
@@ -50,7 +76,10 @@ export function engine({
         report("Chat limit reached for this mode.");
         return;
       }
-      chats.set(jid, conversation({ provider, mode, generate, now: clock }));
+      chats.set(
+        jid,
+        conversation({ provider, mode, generate, language, now: clock }),
+      );
     }
     const deliver = async (to, text) => {
       if (!valid()) throw Error("Paused");
@@ -62,7 +91,10 @@ export function engine({
     const result = await chats.get(jid)(
       m,
       (t) => deliver(jid, t),
-      (t) => deliver(owner + "@s.whatsapp.net", `Mimi inbox · ${name}\n${t}`),
+      async (t) => {
+        await deliver(owner + "@s.whatsapp.net", `Mimi inbox · ${name}\n${t}`);
+        onNote();
+      },
     );
     if (valid() && result !== "duplicate")
       report(
@@ -78,8 +110,11 @@ export function engine({
     get generation() {
       return generation;
     },
+    get until() {
+      return until;
+    },
     get active() {
-      return online && mode !== "off";
+      return available();
     },
   };
 }

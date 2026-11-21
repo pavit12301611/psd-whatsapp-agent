@@ -74,3 +74,73 @@ test("pause while note handoff pending suppresses subsequent away reply", async 
   );
   assert.deepEqual(out, [owner + "@s.whatsapp.net"]);
 });
+
+test("sleep deadline guards delayed Android wake and in-flight replies", async () => {
+  let now = T,
+    expired = 0,
+    notes = 0,
+    callback;
+  const sent = [];
+  const e = engine({
+    owner,
+    scope: "all-direct",
+    provider: "test",
+    clock: () => now,
+    later: (fn) => {
+      callback = fn;
+      return 1;
+    },
+    cancel: () => {},
+    onExpire: () => expired++,
+    onNote: () => notes++,
+  });
+  e.connected(true);
+  e.select("sleeping", 60000);
+  assert.equal(e.until, T + 60000);
+  await assert.rejects(
+    e.handle(
+      "notify",
+      msg(a, "timer"),
+      () => null,
+      async (j, t) => {
+        sent.push(j);
+        now += 60000;
+      },
+    ),
+    /Paused/,
+  );
+  callback();
+  assert.equal(notes, 1);
+  assert.equal(expired, 1);
+  assert.equal(e.active, false);
+  assert.deepEqual(sent, [owner + "@s.whatsapp.net"]);
+  assert.equal(e.until, 0);
+});
+test("changing mode cancels old timer; only current alarm can auto-pause", () => {
+  let callbacks = [],
+    cancelled = [],
+    expired = 0;
+  const e = engine({
+    owner,
+    clock: () => T,
+    later: (cb) => {
+      callbacks.push(cb);
+      return callbacks.length;
+    },
+    cancel: (id) => cancelled.push(id),
+    onExpire: () => expired++,
+  });
+  e.connected(true);
+  e.select("sleeping", 120000);
+  e.select("busy");
+  callbacks[0]();
+  assert.ok(e.active);
+  assert.equal(expired, 0);
+  assert.deepEqual(cancelled, [1]);
+  e.select("sleeping", 60000);
+  callbacks[1]();
+  assert.equal(e.active, false);
+  assert.equal(expired, 1);
+  e.select("sleeping", -1);
+  assert.equal(e.active, false);
+});

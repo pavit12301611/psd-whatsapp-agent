@@ -13,7 +13,9 @@ for (const mode of ["busy", "driving", "sleeping"])
     );
     assert.deepEqual(log, ["Call tomorrow", away(mode)]);
     assert.ok(
-      log[1].startsWith(`psd-Pavit's ai model -- Pavit is ${mode} right now.`),
+      log[1].startsWith(
+        `Mimi — Pavit's own AI bot: Pavit is ${mode} right now.`,
+      ),
     );
     assert.equal(
       await handle(
@@ -100,4 +102,25 @@ test("Only identified tester DMs pass", async () => {
     undefined,
   );
   assert.equal(await read(tester + "@s.whatsapp.net", {}, 180000), undefined);
+});
+
+test("Hinglish greetings and note confirmations show Mimi’s identity", async () => {
+  for (const [mode, phrase] of [
+    ["busy", "busy hai"],
+    ["sleeping", "so raha hai"],
+    ["driving", "drive kar raha hai"],
+  ]) {
+    const texts = [];
+    const reply = conversation({ provider: "test", mode, language: "hi" });
+    for (const id of ["intro", "note"])
+      await reply(
+        { id, text: "hello" },
+        (t) => texts.push(t),
+        () => {},
+      );
+    assert.equal(texts[0], away(mode, "hi"));
+    assert.ok(texts[0].includes(phrase));
+    for (const text of texts)
+      assert.ok(text.startsWith("Mimi — Pavit's own AI bot:"));
+  }
 });

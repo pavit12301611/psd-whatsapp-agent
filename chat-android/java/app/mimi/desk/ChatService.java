@@ -11,6 +11,8 @@ import org.json.*;
 public class ChatService extends Service {
 
   static volatile boolean running, linked;
+  static volatile long sleepUntil;
+  static volatile int notes;
   static volatile String mode = "off",
     code = "",
     status = "Connect your own WhatsApp Business account.";
@@ -47,7 +49,7 @@ public class ChatService extends Service {
       new Intent(this, ChatService.class).setAction("stop"),
       PendingIntent.FLAG_IMMUTABLE
     );
-    return new Notification.Builder(this, "mimi-chat")
+    Notification.Builder builder = new Notification.Builder(this, "mimi-chat")
       .setSmallIcon(getApplicationInfo().icon)
       .setContentTitle("Mimi · Linked chat")
       .setContentText(
@@ -56,7 +58,26 @@ public class ChatService extends Service {
           : "Answering incoming direct texts · " + mode
       )
       .setContentIntent(open)
-      .setOngoing(true)
+      .setOngoing(true);
+    if (!mode.equals("off")) {
+      PendingIntent pause = PendingIntent.getService(
+        this,
+        2,
+        new Intent(this, ChatService.class)
+          .setAction("mode")
+          .putExtra("value", "off"),
+        PendingIntent.FLAG_IMMUTABLE
+      );
+      builder.addAction(
+        new Notification.Action.Builder(null, "Pause replies", pause).build()
+      );
+    }
+    if (sleepUntil > 0 && mode.equals("sleeping")) builder
+      .setWhen(sleepUntil)
+      .setUsesChronometer(true)
+      .setChronometerCountDown(true)
+      .setShowWhen(true);
+    return builder
       .addAction(
         new Notification.Action.Builder(null, "Stop agent", stop).build()
       )
@@ -67,6 +88,8 @@ public class ChatService extends Service {
     String action = intent == null ? "stop" : intent.getAction();
     if ("start".equals(action) && !running) {
       running = true;
+      notes = 0;
+      sleepUntil = 0;
       linked = false;
       code = "";
       mode = "off";
@@ -76,7 +99,19 @@ public class ChatService extends Service {
     } else if ("mode".equals(action) && linked) {
       String m = intent.getStringExtra("value");
       if (m != null && m.matches("off|busy|sleeping|driving")) try {
-        write(Store.obj("type", "mode", "value", m));
+        long ms = intent.getLongExtra("durationMs", 0);
+        write(
+          Store.obj(
+            "type",
+            "mode",
+            "value",
+            m,
+            "durationMs",
+            ms,
+            "language",
+            new Store(this).p.getString("chat.language", "en")
+          )
+        );
       } catch (Exception e) {
         status = "Could not change mode. Agent stopped.";
         stopSelf();
@@ -211,22 +246,30 @@ public class ChatService extends Service {
               case "linked":
                 linked = true;
                 mode = "off";
+                sleepUntil = 0;
                 code = "";
                 status = v;
                 break;
               case "offline":
                 linked = false;
                 mode = "off";
+                sleepUntil = 0;
                 code = "";
                 status = v;
                 break;
               case "mode":
                 if (v.matches("off|busy|sleeping|driving")) {
+                  sleepUntil = v.equals("sleeping")
+                    ? event.optLong("until", 0)
+                    : 0;
                   mode = v;
                   status = v.equals("off")
                     ? "Paused. No replies."
                     : "Listening for new direct texts.";
                 }
+                break;
+              case "note":
+                notes++;
                 break;
               case "status":
                 status = v;
@@ -262,6 +305,7 @@ public class ChatService extends Service {
 
   public synchronized void onDestroy() {
     closed = true;
+    sleepUntil = 0;
     linked = false;
     mode = "off";
     code = "";
