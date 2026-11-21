@@ -86,7 +86,7 @@ public class ChatService extends Service {
       PendingIntent.FLAG_IMMUTABLE
     );
     Notification.Builder builder = new Notification.Builder(this, "mimi-chat")
-      .setSmallIcon(getApplicationInfo().icon)
+      .setSmallIcon(getResources().getIdentifier("pocket_note", "drawable", getPackageName()))
       .setContentTitle("Mimi · Linked chat")
       .setContentText(
         mode.equals("off")

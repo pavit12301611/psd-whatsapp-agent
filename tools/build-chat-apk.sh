@@ -32,7 +32,7 @@ with ZipFile('build/chat-apk/assets/chat-runtime.zip','w',ZIP_DEFLATED) as z:
         z.write(file,file.relative_to(base))
     z.write('licenses/Bun-1.4.5.md','licenses/Bun-1.4.5.md')
 PY
-"$BT/aapt" package -f -M "$MANIFEST" -S app/src/main/res -A "$B/assets" -I "$JAR" -F "$B/unsigned.apk"
+"$BT/aapt" package -f -M "$MANIFEST" -S chat-android/res -A "$B/assets" -I "$JAR" -F "$B/unsigned.apk"
 javac -encoding UTF-8 --release 8 -classpath "$JAR" -d "$B/classes" app/src/main/java/app/mimi/desk/Store.java chat-android/java/app/mimi/desk/*.java
 jar cf "$B/code.jar" -C "$B/classes" .; "$BT/d8" --min-api 28 --lib "$JAR" --output "$B/dex" "$B/code.jar"
 (cd "$B/dex" && zip -q ../unsigned.apk classes.dex); (cd "$B" && zip -q -9 unsigned.apk lib/arm64-v8a/libmimirun.so)

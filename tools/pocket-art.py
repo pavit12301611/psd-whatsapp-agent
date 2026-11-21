@@ -35,8 +35,19 @@ for mode in icons:
  if mode=='sleeping':work[12]=work[13]='.kswwwwwwwwwwwwwwwwwwsk.';work[13]='.kswwwkkkwwwwkkkwwwwwsk.';colors['g']='#ad97cf'
  if mode=='busy':work[11]='..kwwwkkkkwwkkkkwwwwwk..'; colors['g']='#e7ac79'
  if mode=='driving':work[12]='.kswwwkkkkkkkkkkwwwwwsk.';work[13]='.kswwwkkkwwwwkkkwwwwwsk.';colors['g']='#72b9ca'
- s+=pixels(work,colors,59,17,1.85)
+ base=s
+ pet=pixels(work,colors,59,17,1.85)
  # Pixel speech bubble with heart or moon/mug/car badge
- s+=poly('98,14 101,14 101,12 118,12 118,14 121,14 121,26 118,26 118,29 105,29 101,33 101,29 98,29','#796783')+poly('100,15 102,15 102,14 117,14 117,15 119,15 119,25 116,25 116,27 104,27 103,29 103,27 100,27','#fffbfb')
- s+=pixels(heart,{'x':'#ef5da8'},104,17,1.5) if mode=='off' else pixels(*icons[mode],103,15,.83)
- save('island-'+mode,154,98,s)
+ bubble=poly('98,14 101,14 101,12 118,12 118,14 121,14 121,26 118,26 118,29 105,29 101,33 101,29 98,29','#796783')+poly('100,15 102,15 102,14 117,14 117,15 119,15 119,25 116,25 116,27 104,27 103,29 103,27 100,27','#fffbfb')
+ bubble+=pixels(heart,{'x':'#ef5da8'},104,17,1.5) if mode=='off' else pixels(*icons[mode],103,15,.83)
+ save('island-'+mode,154,98,base+pet+bubble)
+ # Discrete frame holds give the rabbit a sprite-like rhythm; the ground stays still.
+ rhythm,cycle = {
+     'off': ('0 0;0 -2;0 -5;0 -2;0 0;0 0', '2.8s'),
+     'busy': ('0 0;1 1;0 0;1 1;0 0;0 0', '2s'),
+     'sleeping': ('0 0;0 -1;0 -2;0 -1;0 0;0 0', '3.4s'),
+     'driving': ('0 0;1 -1;2 0;1 -1;0 0;0 0', '1.6s'),
+ }[mode]
+ def loop(layer,values,duration):
+     return f'<g><animateTransform attributeName="transform" type="translate" values="{values}" dur="{duration}" calcMode="discrete" repeatCount="indefinite"/>{layer}</g>'
+ save('loop-'+mode,154,98,base+loop(pet,rhythm,cycle)+loop(bubble,'0 0;0 -1;0 -3;0 -1;0 0','3s'))

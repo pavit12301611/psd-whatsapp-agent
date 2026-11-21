@@ -1,0 +1,10 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Cream pocket bunny, mint neckerchief, and a little floating heart. -->
+    <path android:fillColor="#AA88BF" android:pathData="M30,73c0,-4 11,-6 23,-6s24,2 24,6s-12,6 -24,6s-23,-2 -23,-6z" />
+    <path android:fillColor="#8BD0B7" android:strokeColor="#5B435F" android:strokeWidth="2" android:pathData="M39,63Q52,70 66,63L68,73Q60,78 55,75L50,80L46,75Q40,75 37,72z" />
+    <path android:fillColor="#FFF7ED" android:strokeColor="#5B435F" android:strokeWidth="2.3" android:pathData="M36,47C29,32 30,24 34,23C39,21 45,33 47,42Q52,40 57,41C60,31 65,23 69,25C74,27 70,39 66,46C75,51 80,61 74,67C66,76 39,76 32,68C26,62 29,53 36,47z" />
+    <path android:fillColor="#F3AEBD" android:pathData="M38,42Q31,28 35,27Q39,26 43,41zM61,41Q66,28 68,30Q70,32 65,43zM32,62a4,2.5 0,1 0,8 0a4,2.5 0,1 0,-8 0M65,62a4,2.5 0,1 0,8 0a4,2.5 0,1 0,-8 0" />
+    <path android:fillColor="#51394F" android:pathData="M42,55a2.3,3.4 0,1 0,4.6 0a2.3,3.4 0,1 0,-4.6 0M59,55a2.3,3.4 0,1 0,4.6 0a2.3,3.4 0,1 0,-4.6 0M50,59Q53,57 56,59L53,62z" />
+    <path android:strokeColor="#6A4863" android:strokeWidth="1.5" android:strokeLineCap="round" android:pathData="M48,62Q50,65 53,62Q56,65 58,62" />
+    <path android:fillColor="#EF5DA8" android:pathData="M79,46C75,43 70,39 73,36Q76,33 79,37Q82,32 85,35C90,39 83,44 79,46z" />
+</vector>

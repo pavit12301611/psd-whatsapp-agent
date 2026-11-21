@@ -71,6 +71,8 @@ function renderDesk(s) {
     byId("headline").textContent = vibes[mode][2];
     byId("mood").textContent = vibes[mode][3];
     const art = byId("island");
+    byId("frames").srcset = `art/loop-${mode}.svg`;
+    byId("petLine").textContent = "♡ Pet Mimi";
     art.src = `art/island-${mode}.svg`;
     if (previous !== undefined) {
       art.classList.remove("react");
@@ -100,6 +102,14 @@ function renderDesk(s) {
   byId("link").textContent =
     s.network === "Offline" ? "Connect WhatsApp" : "Stop chat engine";
 }
+// Petting is a visual-only interaction: never call the engine or change availability.
+byId("pet").addEventListener("click", () => {
+  byId("petLine").textContent = {
+    off: "♥ Mimi hops for you!", busy: "♥ Coffee break!", sleeping: "☾ Sweet dreams…", driving: "♥ Beep beep!"
+  }[previous];
+  const art = byId("island");
+  art.classList.remove("react"); void art.offsetWidth; art.classList.add("react");
+});
 const onPhone = location.hostname === "pocket.mimi.invalid";
 renderDesk({ mode: "off", network: "Offline" });
 document.addEventListener("click", (e) => {

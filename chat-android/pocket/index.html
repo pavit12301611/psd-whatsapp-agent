@@ -51,13 +51,17 @@
           <p id="reason" hidden></p>
           <p id="timer" hidden></p>
         </div>
-        <div class="world">
+        <button type="button" id="pet" class="world" aria-label="Pet Mimi">
+          <picture>
+            <source id="frames" media="(prefers-reduced-motion: no-preference)" srcset="art/loop-off.svg" />
           <img
             id="island"
             src="art/island-off.svg"
-            alt="Mimi the pixel rabbit on a little floating island"
+            alt=""
           />
-        </div>
+          </picture>
+          <span id="petLine" aria-live="polite">♡ Pet Mimi</span>
+        </button>
       </section>
       <section class="modes">
         <div class="kicker">01 <b>/</b> AVAILABILITY</div>

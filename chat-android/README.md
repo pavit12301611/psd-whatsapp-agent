@@ -50,3 +50,6 @@ An unofficial Baileys client runs in the app's private storage. Test with a spar
 Use JDK 17, Android SDK platform/build-tools 34, Node 22+, npm, tar, unzip/zip, openssl and Python 3. `tools/build-chat-apk.sh` verifies the pinned Android Bun archive, installs dependencies from `chat/package-lock.json`, runs routing tests, builds the APK and verifies its signature. Set `MIMI_KEYSTORE` / `MIMI_STORE_PASS` to sign an update with your own key. `tools/build-apk.sh` is the **legacy voice APK** build, not the chat APK.
 
 Test on-device: connect → confirm paused → no response to a new DM → choose Sleeping → new DM gets status greeting → a second sender gets an independent greeting → group text gets none → pause → no response. Test screen locked and after a network reconnect. The packaged runner's JS startup was smoke-tested with the matching desktop Bun version, not on an A53 or a live WhatsApp account.
+
+### Pocket Desk 0.8.1 · Pet Mimi
+The launcher now shows a cream bunny with a mint scarf and pink heart. Open Pocket Desk to see local, GIF-like sprite loops for each availability; **Pet Mimi** is purely visual and never sends a message or changes a mode. Reduced-motion displays use still artwork. Install over **Pocket Desk 0.8.0** (same package and signing certificate) without clearing app data. This does not upgrade the separate legacy Chat Desk.
