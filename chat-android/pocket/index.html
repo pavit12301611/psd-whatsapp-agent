@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'"
+    />
+    <title>Mimi · Pocket Desk</title>
+    <link rel="stylesheet" href="pocket.css" />
+  </head>
+  <body>
+    <header>
+      <div class="bar">
+        <a class="brand" href="#desk"
+          ><b class="avatar"><img src="art/mark.svg" alt="" /></b>Mimi<span
+            >/</span
+          ><small>Pocket Desk</small></a
+        >
+        <nav aria-label="Workspace">
+          <a href="#desk" aria-current="page">Desk</a
+          ><a href="#toolkit">Toolkit</a><a href="#connection">Connection</a>
+        </nav>
+        <button
+          class="profile"
+          data-act="settings"
+          aria-label="Account and AI settings"
+        >
+          P
+        </button>
+      </div>
+    </header>
+    <main id="desk">
+      <div class="intro">
+        <div>
+          <div class="eyebrow">
+            <i data-icon="sparkle"></i> PERSONAL WORKSPACE
+          </div>
+          <h1>My pocket desk<span>.</span></h1>
+          <p>A little space for Mimi, Pavit’s own AI bot.</p>
+        </div>
+        <span class="status" id="network">Offline</span>
+      </div>
+      <section class="hero" aria-label="Mimi’s current mood">
+        <div class="heroCopy">
+          <div class="label"><b>✦</b> MIMI’S WORLD</div>
+          <h2 id="headline">Just hanging out.</h2>
+          <p id="mood">You’re available, so Mimi is taking a little break.</p>
+          <span class="pill" id="chip">● &nbsp; Replies paused</span>
+          <p id="reason" hidden></p>
+          <p id="timer" hidden></p>
+        </div>
+        <div class="world">
+          <img
+            id="island"
+            src="art/island-off.svg"
+            alt="Mimi the pixel rabbit on a little floating island"
+          />
+        </div>
+      </section>
+      <section class="modes">
+        <div class="kicker">01 <b>/</b> AVAILABILITY</div>
+        <h2>Set your vibe</h2>
+        <p>Pick a mode. Mimi will follow your lead.</p>
+        <div class="grid" id="choices"></div>
+        <div class="hint">
+          <i data-icon="smartphone"></i> Saved on this phone, even when offline.
+        </div>
+      </section>
+      <section id="toolkit">
+        <div class="kicker">02 <b>/</b> QUICK TOOLS</div>
+        <h2>Mimi’s toolkit</h2>
+        <div class="tools" id="tools"></div>
+      </section>
+      <section id="connection">
+        <div class="kicker">03 <b>/</b> CONNECTION</div>
+        <h2>WhatsApp Business</h2>
+        <div class="connect">
+          <div>
+            <strong id="activity">Engine offline</strong>
+            <p id="scope">Audience: direct chats</p>
+            <output id="pair"></output>
+          </div>
+          <button data-act="connect" class="primary" id="link">
+            Connect WhatsApp</button
+          ><button data-act="forget" id="forget" hidden>Forget session</button>
+        </div>
+        <small class="fine"
+          >Unofficial linked device. Test with a spare account; WhatsApp may
+          disconnect or restrict it. Revoke access in Linked devices.</small
+        >
+      </section>
+      <footer>
+        <img src="art/mark.svg" alt="" /> MIMI POCKET DESK <span>✦</span> MADE
+        FOR PAVIT
+      </footer>
+    </main>
+    <dialog id="demo">
+      <h2 id="dt"></h2>
+      <p id="dd"></p>
+      <button class="primary" autofocus>Got it</button>
+    </dialog>
+    <script src="icons.js"></script>
+    <script src="pocket.js"></script>
+  </body>
+</html>

@@ -2,6 +2,11 @@
 
 `releases/Mimi-Chat-Desk.apk` is the chat-first ARM64 build for the Galaxy A53 5G. It updates the earlier Mimi package (version code 8, same signer). The chat launcher **replaces** the old notification/invite workflow; no caller page, Termux, shell commands, notification-reading permission or server needed. This does not answer voice calls.
 
+## Pocket Desk redesign (0.8.0)
+Install **`releases/Mimi-Pocket-Desk.apk`** for the redesigned home screen. This side-by-side build has its own Android application ID (`app.mimi.desk.pocket`), signer and private storage. It does **not** update or migrate the older Chat Desk. Keep the old app installed; stop its chat engine before linking the new desk to avoid duplicate replies. Set up the Business number, tester scope, priority rules and optional keys in the new app. To switch back, stop Pocket Desk first.
+
+The top badge tracks the actual connection while Mimi’s pixel island reflects the **saved availability**. Busy and Sleeping only change after you confirm the native picker; the sleep deadline still ends in Pause. Tap **Account & AI** or the **P** avatar for settings. Design assets and the Figma-importable mobile frame are documented in [the handoff](../design/README.md). Browser mode is a local interactive design preview only.
+
 ## On the phone
 1. Install the chat APK. If you ran the older Termux experiment, stop that process and log out its old linked device first.
 2. Tap **Connect WhatsApp**. Enter your Business number with country code. For a first test, enter one friend's number in the optional tester field. **Blank tester = all incoming direct text chats** while a mode is active. Nothing is sent merely by connecting or changing a setting.

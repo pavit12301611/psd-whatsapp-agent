@@ -8,15 +8,17 @@ import android.graphics.drawable.GradientDrawable;
 import android.os.*;
 import android.view.*;
 import android.widget.*;
+import android.webkit.*;
+import android.net.Uri;
 import java.io.File;
 
 /** Chat-first launcher; the old voice notification service isn't registered in this APK. */
 public class ChatDesk extends Activity {
 
   Store store;
-  LinearLayout page;
-  TextView badge, activity, pair, scope, timer, briefing;
-  Button link, forget;
+  WebView desk;
+  static final String ORIGIN = "https://pocket.mimi.invalid";
+  static final String HOME = ORIGIN + "/index.html", ACTION = ORIGIN + "/action/";
   // Only validated, encrypted edits may wait here. Never place keys in savedInstanceState.
   SharedPreferences.Editor pendingConfig;
 
@@ -25,8 +27,6 @@ public class ChatDesk extends Activity {
     return pendingConfig;
   }
 
-  TextView signal, reasonLine;
-  String paintedMode = null;
   final android.content.SharedPreferences.OnSharedPreferenceChangeListener prefChange =
     (prefs, key) -> refreshSoon();
 
@@ -55,8 +55,6 @@ public class ChatDesk extends Activity {
     );
   }
 
-  String[] values = { "off", "busy", "sleeping", "driving" };
-  Button[] modes = new Button[4];
   final Handler ui = new Handler(Looper.getMainLooper());
   int ink = 0xff30273f,
     purple = 0xff604498,
@@ -121,116 +119,55 @@ public class ChatDesk extends Activity {
     store = new Store(this);
     pendingConfig =
       (SharedPreferences.Editor) getLastNonConfigurationInstance();
-    getWindow().setStatusBarColor(0xff493176);
+    getWindow().setStatusBarColor(0xfffffefa);
+    getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
-    ScrollView scroll = new ScrollView(this);
-    scroll.setBackgroundColor(0xfff7f6fb);
-    int width = getResources().getConfiguration().screenWidthDp;
-    page = box(0xfff7f6fb, width < 360 ? 14 : 22);
-    android.widget.FrameLayout.LayoutParams body =
-      new android.widget.FrameLayout.LayoutParams(
-        width > 680 ? dp(680) : -1,
-        -2,
-        Gravity.TOP | Gravity.CENTER_HORIZONTAL
-      );
-    scroll.addView(page, body);
-    setContentView(scroll);
-    text(page, "MIMI   /   PERSONAL WORKSPACE", 11, purple, true);
-    gap(page, 5);
-    text(page, "Chat desk", 35, ink, true);
-    text(page, "Mimi — Pavit's own AI bot", 15, muted, false);
-    gap(page, 20);
-    LinearLayout hero = box(0xff493176, 20);
-    page.addView(hero);
-    GradientDrawable wash = new GradientDrawable(
-      GradientDrawable.Orientation.TL_BR,
-      new int[] { 0xff372452, 0xff62449a }
-    );
-    wash.setCornerRadius(dp(21));
-    hero.setBackground(wash);
-    signal = text(hero, "YOUR STATUS   /   OFFLINE", 12, 0xffdef6ac, true);
-    signal.setLetterSpacing(.06f);
-    gap(hero, 10);
-    badge = text(hero, "Paused", 27, Color.WHITE, true);
-    gap(hero, 5);
-    reasonLine = text(hero, "", 15, Color.WHITE, false);
-    scope = text(hero, "", 14, 0xffe2d9f2, false);
-    timer = text(hero, "", 15, 0xffd9fab0, true);
-    gap(page, 18);
-    text(page, "Availability", 22, ink, true);
-    text(
-      page,
-      "Your selection stays on this phone, even offline. Mimi uses it when WhatsApp is linked.",
-      14,
-      muted,
-      false
-    );
-    gap(page, 8);
-    float font = getResources().getConfiguration().fontScale;
-    int cols = width / font < 330 ? 1 : width / font >= 620 ? 4 : 2;
-    for (int i = 0; i < 4; ) {
-      LinearLayout row = new LinearLayout(this);
-      page.addView(row);
-      for (int c = 0; c < cols && i < 4; c++, i++) {
-        final int idx = i;
-        Button tile = (modes[i] = button(
-          row,
-          new String[] { "Available / Pause", "Busy", "Sleeping", "Driving" }[
-            i
-          ],
-          () -> select(values[idx])
-        ));
-        LinearLayout.LayoutParams cell = new LinearLayout.LayoutParams(
-          0,
-          -2,
-          1
-        );
-        cell.setMargins(dp(3), dp(3), dp(3), dp(3));
-        tile.setLayoutParams(cell);
-        tile.setMinHeight(dp(54));
+    desk = new WebView(this);
+    WebSettings web = desk.getSettings();
+    web.setJavaScriptEnabled(true);
+    web.setAllowFileAccess(false);
+    web.setAllowContentAccess(false);
+    web.setBlockNetworkLoads(true);
+    web.setTextZoom(Math.round(100 * getResources().getConfiguration().fontScale));
+    desk.setWebViewClient(new WebViewClient() {
+      @Override public WebResourceResponse shouldInterceptRequest(WebView w, WebResourceRequest r) {
+        Uri uri = r.getUrl();
+        String path = uri.getPath();
+        if ("https".equals(uri.getScheme()) && "pocket.mimi.invalid".equals(uri.getAuthority()) && path != null &&
+            path.matches("/(art/)?[a-z0-9-]+[.](html|js|css|svg|woff2)")) {
+          String mime = path.endsWith(".html") ? "text/html" : path.endsWith(".svg") ? "image/svg+xml" : path.endsWith(".js") ? "text/javascript" : path.endsWith(".css") ? "text/css" : "font/woff2";
+          try { return new WebResourceResponse(mime, path.endsWith(".woff2") ? null : "UTF-8", getAssets().open("pocket" + path)); }
+          catch (java.io.IOException ignored) { }
+        }
+        return new WebResourceResponse("text/plain", "UTF-8", null);
       }
-    }
-    gap(page, 18);
-    LinearLayout personal = box(0xffeee9f8, 16);
-    page.addView(personal);
-    text(personal, "REPLY STUDIO", 11, purple, true);
-    gap(personal, 6);
-    briefing = text(personal, "", 15, ink, false);
-    button(personal, "Preview greeting & language", this::studio);
-    button(personal, "Call Shield & priority callers", () ->
-      CallRules.edit(this)
-    );
-    button(personal, "Follow-up inbox", () -> {
-      String owner = store.get("chat.owner");
-      if (owner.isEmpty()) {
-        Toast.makeText(
-          this,
-          "Set up your WhatsApp number first.",
-          Toast.LENGTH_SHORT
-        ).show();
-        return;
+      @Override public boolean shouldOverrideUrlLoading(WebView w, WebResourceRequest r) {
+        String url = r.getUrl().toString();
+        if (url.startsWith(HOME + "#")) return false;
+        if (r.isForMainFrame() && w.getUrl() != null && w.getUrl().split("#", 2)[0].equals(HOME) && url.startsWith(ACTION))
+          deskAction(url.substring(ACTION.length()));
+        return true;
       }
-      new FollowUpDesk(this, owner).show();
+      @Override public void onPageFinished(WebView w, String url) { refreshSoon(); }
     });
-    gap(page, 14);
-    LinearLayout card = box(Color.WHITE, 16);
-    page.addView(card);
-    text(card, "CONNECTION", 11, purple, true);
-    gap(card, 6);
-    activity = text(card, "", 15, ink, false);
-    pair = text(card, "", 28, purple, true);
-    gap(card, 8);
-    link = button(card, "Connect WhatsApp", this::connectOrStop);
-    button(card, "Account & AI settings", this::setup);
-    forget = button(card, "Forget local session", this::forget);
-    gap(page, 14);
-    text(
-      page,
-      "Unofficial linked-device client. Test with a spare account first. WhatsApp can disconnect or restrict it. You can revoke access under Linked devices.",
-      12,
-      muted,
-      false
-    );
+    setContentView(desk);
+    desk.loadUrl(HOME);
+  }
+
+  void deskAction(String action) {
+    switch (action) {
+      case "off": case "busy": case "sleeping": case "driving": select(action); break;
+      case "studio": studio(); break;
+      case "shield": CallRules.edit(this); break;
+      case "settings": setup(); break;
+      case "connect": connectOrStop(); break;
+      case "forget": if (!ChatService.running) forget(); break;
+      case "inbox":
+        String owner = store.get("chat.owner");
+        if (!owner.isEmpty()) new FollowUpDesk(this, owner).show();
+        else Toast.makeText(this, "Set up your WhatsApp number first.", Toast.LENGTH_SHORT).show();
+        break;
+    }
   }
 
   void select(String m) {
@@ -489,52 +426,18 @@ public class ChatDesk extends Activity {
       Availability selected = saved();
       String m = selected.mode,
         code = ChatService.code;
-      signal.setText(
-        linked
-          ? "YOUR STATUS   /   LINKED"
-          : live
-            ? "YOUR STATUS   /   CONNECTING"
-            : "YOUR STATUS   /   OFFLINE"
-      );
-      badge.setText(m.equals("off") ? "Available · Paused" : "Pavit is " + m);
-      reasonLine.setVisibility(
-        selected.reason.isEmpty() ? View.GONE : View.VISIBLE
-      );
-      if (!selected.reason.isEmpty()) reasonLine.setText(
-        (selected.share ? "Shared reason: " : "Private reason: ") +
-          selected.reason
-      );
-      scope.setText(
-        "all-direct".equals(store.p.getString("chat.scope", "all-direct"))
-          ? "Audience: anyone who texts you directly."
-          : "Audience: one test number only."
-      );
       long until = selected.until;
-      timer.setVisibility(
-        until > 0 && m.equals("sleeping") ? View.VISIBLE : View.GONE
-      );
-      if (until > 0) {
-        long secs = Math.max(
-          0,
-          (until - System.currentTimeMillis() + 999) / 1000
-        );
-        timer.setText(
-          String.format(
-            java.util.Locale.getDefault(),
-            "Auto-pause in %d:%02d:%02d",
-            secs / 3600,
-            (secs / 60) % 60,
-            secs % 60
-          )
-        );
-      }
-      briefing.setText(
-        ChatService.notes + " notes left for Pavit this session"
-      );
-      activity.setText(ChatService.status);
-      pair.setText(code);
-      pair.setVisibility(code.isEmpty() ? View.GONE : View.VISIBLE);
-      link.setText(live ? "Stop chat engine" : "Connect WhatsApp");
+      long secs = Math.max(0, (until - System.currentTimeMillis() + 999) / 1000);
+      String timer = until == 0 ? "" : String.format(java.util.Locale.getDefault(),
+        "Auto-pause in %d:%02d:%02d", secs / 3600, (secs / 60) % 60, secs % 60);
+      try {
+        String state = Store.obj("mode", m, "network", linked ? "Linked" : live ? "Connecting" : "Offline",
+          "reason", selected.reason.isEmpty() ? "" : (selected.share ? "Shared reason: " : "Private reason: ") + selected.reason,
+          "timer", timer, "notes", ChatService.notes, "code", code, "activity", ChatService.status,
+          "tester", !"all-direct".equals(store.p.getString("chat.scope", "all-direct")),
+          "canForget", !live && !store.get("chat.owner").isEmpty()).toString();
+        desk.evaluateJavascript("window.renderDesk && window.renderDesk(" + state + ")", null);
+      } catch (org.json.JSONException e) { throw new IllegalStateException(e); }
       // The editor remains accessible while connecting, linked, or offline.
       // Don't expose new account settings to a still-running worker for the old account.
       if (!live && pendingConfig != null) {
@@ -543,28 +446,6 @@ public class ChatDesk extends Activity {
         edits.apply();
         launch();
         return;
-      }
-      forget.setVisibility(
-        !live && !store.get("chat.owner").isEmpty() ? View.VISIBLE : View.GONE
-      );
-      if (!m.equals(paintedMode)) {
-        paintedMode = m;
-        for (int i = 0; i < 4; i++) {
-          boolean active = m.equals(values[i]);
-          Button tile = modes[i];
-          tile.setSelected(active);
-          tile.setTypeface(
-            Typeface.DEFAULT,
-            active ? Typeface.BOLD : Typeface.NORMAL
-          );
-          tile.setTextColor(active ? Color.WHITE : ink);
-          tile.setBackground(
-            surface(
-              active ? 0xff604498 : Color.WHITE,
-              active ? purple : 0xffded8e9
-            )
-          );
-        }
       }
       ui.removeCallbacks(this);
       if (until > 0) ui.postDelayed(this, 1000);
