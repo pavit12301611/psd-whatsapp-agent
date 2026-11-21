@@ -1,6 +1,6 @@
 # Mimi Chat Desk · standalone Android APK
 
-`releases/Mimi-Chat-Desk.apk` is the chat-first ARM64 build for the Galaxy A53 5G. It updates the earlier Mimi package (version code 7, same signer). The chat launcher **replaces** the old notification/invite workflow; no caller page, Termux, shell commands, notification-reading permission or server needed. This does not answer voice calls.
+`releases/Mimi-Chat-Desk.apk` is the chat-first ARM64 build for the Galaxy A53 5G. It updates the earlier Mimi package (version code 8, same signer). The chat launcher **replaces** the old notification/invite workflow; no caller page, Termux, shell commands, notification-reading permission or server needed. This does not answer voice calls.
 
 ## On the phone
 1. Install the chat APK. If you ran the older Termux experiment, stop that process and log out its old linked device first.
@@ -9,6 +9,11 @@
 4. On the first connection enter the displayed private code in **WhatsApp Business → Linked devices → Link a device → Link with phone number instead**. Never share it. Return to Mimi and check the **LINKED** indicator (first setup defaults to Available / Paused). A saved session can be reused on later connections.
 5. Tap **Busy**, **Sleeping** or **Driving**. Ask someone to send a **new** personal text. The agent sends a note to your WhatsApp self-chat, then replies with `Mimi — Pavit's own AI bot: Pavit is …`. Conversations, opt-in and follow-ups are separate per sender. No contact list import, broadcast or history replay. Groups, status updates and outgoing messages are ignored. Calls pass through unless Call Shield is explicitly enabled. A sender can use `/stop` or `/start`.
 6. **Available / Pause** stops replies but keeps the link open. **Stop chat engine** terminates the process. Stopping does not forget your selection. The next successful connection applies your last saved mode; select Available / Pause if you want future reconnects to stay silent. Android can suspend/kill the app; this is not an always-on guarantee. A message already handed to WhatsApp cannot be recalled by pausing.
+
+## Editing account & AI settings (0.7.1)
+The **Account & AI settings** button opens the editor even while the engine is running or connecting. Opening or cancelling does not stop it. A changed number, scope, provider or key takes effect with **Save & reconnect**: Mimi stops the old worker, applies the validated settings, then connects using the selected account. Keeping the same number reuses its local session; a different number may need pairing. A blank provider-key field keeps its saved key. Offline, use **Save & connect** as before.
+
+Device regression check: while linked, open the editor and cancel; the same session should keep running. Open it again, change the tester scope and save. After reconnecting, reopen the editor and verify the new scope, and check that an invalid number cannot be saved. Repeat the open/cancel check while connecting and while stopped.
 
 ## Offline availability & Busy reason (0.7)
 After saving your Business number, the status card and highlighted tile show that account’s **desired availability**, independently of the OFFLINE / CONNECTING / LINKED indicator. Change it even with no connection. Android app-private preferences retain the latest selection across app/service/device restarts. A stopped service does not relaunch at boot; tap Connect to run it. On each link the engine reads the latest selection, resumes only unexpired modes, and handles fresh events, not an offline backlog. Forgetting the local account removes its saved availability.

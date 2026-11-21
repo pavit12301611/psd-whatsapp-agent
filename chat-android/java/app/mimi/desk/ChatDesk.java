@@ -16,7 +16,15 @@ public class ChatDesk extends Activity {
   Store store;
   LinearLayout page;
   TextView badge, activity, pair, scope, timer, briefing;
-  Button link, settings, forget;
+  Button link, forget;
+  // Only validated, encrypted edits may wait here. Never place keys in savedInstanceState.
+  SharedPreferences.Editor pendingConfig;
+
+  @Override
+  public Object onRetainNonConfigurationInstance() {
+    return pendingConfig;
+  }
+
   TextView signal, reasonLine;
   String paintedMode = null;
   final android.content.SharedPreferences.OnSharedPreferenceChangeListener prefChange =
@@ -111,6 +119,8 @@ public class ChatDesk extends Activity {
   public void onCreate(Bundle saved) {
     super.onCreate(saved);
     store = new Store(this);
+    pendingConfig =
+      (SharedPreferences.Editor) getLastNonConfigurationInstance();
     getWindow().setStatusBarColor(0xff493176);
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
     ScrollView scroll = new ScrollView(this);
@@ -211,7 +221,7 @@ public class ChatDesk extends Activity {
     pair = text(card, "", 28, purple, true);
     gap(card, 8);
     link = button(card, "Connect WhatsApp", this::connectOrStop);
-    settings = button(card, "Account & AI settings", this::setup);
+    button(card, "Account & AI settings", this::setup);
     forget = button(card, "Forget local session", this::forget);
     gap(page, 14);
     text(
@@ -525,7 +535,15 @@ public class ChatDesk extends Activity {
       pair.setText(code);
       pair.setVisibility(code.isEmpty() ? View.GONE : View.VISIBLE);
       link.setText(live ? "Stop chat engine" : "Connect WhatsApp");
-      settings.setEnabled(!live);
+      // The editor remains accessible while connecting, linked, or offline.
+      // Don't expose new account settings to a still-running worker for the old account.
+      if (!live && pendingConfig != null) {
+        SharedPreferences.Editor edits = pendingConfig;
+        pendingConfig = null;
+        edits.apply();
+        launch();
+        return;
+      }
       forget.setVisibility(
         !live && !store.get("chat.owner").isEmpty() ? View.VISIBLE : View.GONE
       );
@@ -624,6 +642,15 @@ public class ChatDesk extends Activity {
   }
 
   void setup() {
+    if (pendingConfig != null) {
+      Toast.makeText(
+        this,
+        "Applying settings. Please wait for reconnect.",
+        Toast.LENGTH_SHORT
+      ).show();
+      return;
+    }
+    boolean editingLive = ChatService.running;
     ScrollView sc = new ScrollView(this);
     LinearLayout l = box(Color.WHITE, 16);
     sc.addView(l);
@@ -675,19 +702,24 @@ public class ChatDesk extends Activity {
     );
     text(
       l,
-      "Pairing grants a linked device account access. Never share its code. Linking alone does not enable replies.",
+      editingLive
+        ? "You can edit while connected. Saving changes briefly restarts the chat engine; Cancel keeps it running unchanged."
+        : "Pairing grants a linked device account access. Never share its code.",
       13,
       muted,
       false
     );
     AlertDialog d = new AlertDialog.Builder(this)
-      .setTitle("Connect chat desk")
+      .setTitle("Account & AI settings")
       .setView(sc)
       .setNegativeButton("Cancel", null)
-      .setPositiveButton("Save & connect", null)
+      .setPositiveButton(
+        editingLive ? "Save & reconnect" : "Save & connect",
+        null
+      )
       .create();
-    d.show();
     d.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+    d.show();
     d.getButton(-1).setOnClickListener(v -> {
       String o = digits(owner),
         t = digits(tester),
@@ -705,15 +737,32 @@ public class ChatDesk extends Activity {
         key.setError("Add the selected provider key");
         return;
       }
+      String scope = t.isEmpty() ? "all-direct" : t;
+      if (
+        ChatService.running &&
+        o.equals(store.get("chat.owner")) &&
+        scope.equals(stored) &&
+        p.equals(store.p.getString("chat.provider", "test")) &&
+        (p.equals("test") || k.isEmpty())
+      ) {
+        d.dismiss();
+        return; // Nothing to apply: leave the connection alone.
+      }
       try {
-        android.content.SharedPreferences.Editor e = store.p.edit();
+        SharedPreferences.Editor e = store.p.edit();
         if (!p.equals("test") && !k.isEmpty()) e.putString(p, Store.enc(k));
         e.putString("chat.owner", o)
-          .putString("chat.scope", t.isEmpty() ? "all-direct" : t)
-          .putString("chat.provider", p)
-          .apply();
+          .putString("chat.scope", scope)
+          .putString("chat.provider", p);
+        if (ChatService.running) {
+          stopService(new Intent(this, ChatService.class));
+          pendingConfig = e;
+          refreshSoon(); // onDestroy also notifies us once the old engine is stopped.
+        } else {
+          e.apply();
+          start();
+        }
         d.dismiss();
-        start();
       } catch (Exception ex) {
         key.setError("Could not secure provider key");
       }
