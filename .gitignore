@@ -3,3 +3,6 @@ build/
 *.jks
 *.keystore
 *.idsig
+
+# Local signing key: never committed
+.mimi/

@@ -83,6 +83,10 @@ final class RoutineDesk {
     }
     a.gap(panel, 8);
     a.button(panel, "＋ Add a block", () -> editor(a, null));
+    a.text(panel, "One-tap starters", 13, a.muted, true);
+    a.button(panel, "🏫 School · Mon–Sat 8 am–2 pm", () -> preset(a, "School", "school", "08:00", "14:00", "School mein hoon, 2 baje ke baad free", new int[] { 1, 2, 3, 4, 5, 6 }));
+    a.button(panel, "📚 Study · daily 7–9 pm", () -> preset(a, "Study", "study", "19:00", "21:00", "Padh raha hoon, thodi der mein reply", new int[] { 1, 2, 3, 4, 5, 6, 7 }));
+    a.button(panel, "😴 Sleep · daily 11 pm–7 am", () -> preset(a, "Sleep", "sleep", "23:00", "07:00", "So raha hoon", new int[] { 1, 2, 3, 4, 5, 6, 7 }));
     a.button(panel, "Ask Mimi about my time", () -> ask(a, routine));
     a.button(panel, "Time insights & export", () -> Insights.show(a));
 
@@ -93,11 +97,31 @@ final class RoutineDesk {
       .show();
   }
 
+  private static void preset(ChatDesk a, String name, String kind, String start, String end, String reason, int[] days) {
+    Store s = a.store;
+    Routine routine = Routine.get(s.p);
+    try {
+      JSONArray list = new JSONArray();
+      for (int d : days) list.put(d);
+      routine.put(Store.obj("id", "", "name", name, "kind", kind, "days", list, "date", "",
+        "start", start, "end", end, "reason", reason, "language", "hi"));
+      routine.save(s.p);
+      Routine.pause(s.p, false);
+      nudge(a);
+      Toast.makeText(a, name + " added. Mimi follows it automatically.", Toast.LENGTH_SHORT).show();
+      show(a);
+    } catch (IllegalArgumentException e) {
+      Toast.makeText(a, e.getMessage(), Toast.LENGTH_LONG).show();
+    } catch (org.json.JSONException e) {
+      Toast.makeText(a, "Could not add this block.", Toast.LENGTH_SHORT).show();
+    }
+  }
+
   private static void nudge(ChatDesk a) {
     if (ChatService.running) a.startService(new Intent(a, ChatService.class).setAction("routine"));
   }
 
-  private static void ask(final ChatDesk a, final Routine routine) {
+  static void ask(final ChatDesk a, final Routine routine) {
     clear();
     LinearLayout panel = a.box(Color.WHITE, 14);
     a.text(panel, "Try “aaj kya plan hai”, “abhi free hoon?”, “next kab” or “neend”.", 13, a.muted, false);

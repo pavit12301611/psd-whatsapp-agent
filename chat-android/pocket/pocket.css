@@ -588,3 +588,74 @@ button.world { position:relative; border:0; background:transparent; border-radiu
 .planActions .primary { background:#604498; border-color:#604498; color:#fff; }
 .pill.quiet { background:#f0ecf7; color:#5a4a72; }
 @media (max-width:560px) { .planActions button { flex:1 1 140px; } }
+
+/* ── Mimi motion: springy, reactive, still calm with reduced motion ── */
+:root { --spring: cubic-bezier(.34,1.56,.64,1); }
+@keyframes rise { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:none; } }
+@keyframes bob { 0%,100% { transform:translateY(0) rotate(0); } 50% { transform:translateY(-7px) rotate(-1.5deg); } }
+@keyframes hop {
+  0% { transform:scale(1); }
+  28% { transform:scale(1.07,.92) translateY(3px); }
+  52% { transform:scale(.95,1.07) translateY(-16px); }
+  76% { transform:scale(1.03,.97); }
+  100% { transform:scale(1); }
+}
+@keyframes pop { 0% { transform:scale(.88); opacity:.4; } 62% { transform:scale(1.04); } 100% { transform:scale(1); opacity:1; } }
+@keyframes breathe { 0%,100% { box-shadow:0 0 0 0 rgba(96,68,152,.28); } 50% { box-shadow:0 0 0 7px rgba(96,68,152,0); } }
+@keyframes heartUp {
+  0% { opacity:0; transform:translate(0,10px) scale(.5) rotate(-8deg); }
+  22% { opacity:1; }
+  100% { opacity:0; transform:translate(var(--dx,0),-78px) scale(1.05) rotate(9deg); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .intro, .hero, main > section { animation: rise .52s var(--spring) both; }
+  main > section:nth-of-type(2) { animation-delay:.05s; }
+  main > section:nth-of-type(3) { animation-delay:.1s; }
+  main > section:nth-of-type(4) { animation-delay:.15s; }
+  #pet:hover #island { animation: bob 1.9s ease-in-out infinite; }
+  #pet #island.hop { animation: hop .62s var(--spring); }
+  #pet:active { transform: scale(.985); }
+  .tile, .tool, .quick button, .planActions button, .profile, nav a {
+    transition: transform .16s var(--spring), box-shadow .2s ease, background .2s ease, color .2s ease;
+  }
+  .tile:hover, .tool:hover, .quick button:hover { transform: translateY(-3px); }
+  .tile:active, .tool:active, .quick button:active, .planActions button:active, .profile:active { transform: scale(.955); }
+  .tile[aria-pressed="true"] { animation: pop .34s var(--spring); box-shadow: 0 10px 24px -16px rgba(96,68,152,.75); }
+  .tile[aria-pressed="true"] img { animation: bob 2.4s ease-in-out infinite; }
+  #chip.pulse { animation: breathe 2s ease-in-out infinite; }
+  .slot.now { animation: breathe 2.2s ease-in-out infinite; }
+  #island.react { animation: hop .6s var(--spring); }
+}
+#sparks { position:absolute; inset:0; pointer-events:none; z-index:2; }
+.spark { position:absolute; left:50%; bottom:42%; font-size:15px; color:#c65b86; animation: heartUp .92s ease-out forwards; }
+.spark::before { content:"♥"; }
+.spark.s1 { --dx:-46px; animation-delay:0s; }
+.spark.s2 { --dx:-20px; animation-delay:.05s; font-size:12px; }
+.spark.s3 { --dx:6px; animation-delay:.1s; font-size:17px; }
+.spark.s4 { --dx:32px; animation-delay:.04s; font-size:13px; color:#7a5cbe; }
+.spark.s5 { --dx:52px; animation-delay:.12s; font-size:11px; color:#7a5cbe; }
+
+/* One-tap shortcuts */
+.quick { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+.quick button {
+  display:flex; align-items:center; gap:7px; min-height:46px; padding:0 15px;
+  border-radius:16px; border:1px solid #e2dbea; background:#fffefa;
+  font-size:14px; font-weight:750; letter-spacing:-.1px;
+}
+.quick button .icon { width:17px; height:17px; color:#7a5cbe; }
+.quick button:nth-child(3) { border-color:#cfe3d6; background:#f2fbf5; }
+.quick button:nth-child(3) .icon { color:#2f7d52; }
+@media (max-width:560px) { .quick button { flex:1 1 44%; justify-content:center; } }
+
+/* Today's timeline */
+.timeline { list-style:none; margin:2px 0 0; padding:0; display:grid; gap:6px; }
+.slot {
+  display:grid; grid-template-columns:78px 1fr auto; align-items:center; gap:10px;
+  padding:9px 12px; border-radius:14px; background:#f7f3fb; border:1px solid transparent; font-size:13.5px;
+}
+.slot b { color:#604498; font-weight:800; font-variant-numeric:tabular-nums; }
+.slot small { color:#8c8497; }
+.slot.now { background:#f0e7fb; border-color:#c9b3ea; }
+.slot.now span::after { content:" · now"; color:#7a5cbe; font-weight:800; font-size:11px; letter-spacing:.04em; text-transform:uppercase; }
+.slot.empty { display:block; color:#8c8497; background:transparent; border:1px dashed #e2dbea; }
+.nextUp { font-size:13.5px; color:#7a5cbe; font-weight:700; margin:6px 0 0; }

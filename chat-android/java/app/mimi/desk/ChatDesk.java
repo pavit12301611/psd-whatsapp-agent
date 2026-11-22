@@ -152,6 +152,12 @@ public class ChatDesk extends Activity {
     });
     setContentView(desk);
     desk.loadUrl(HOME);
+    if (getIntent().getBooleanExtra("openRoutine", false)) desk.postDelayed(() ->
+      RoutineDesk.show(this), 700);
+    if (getIntent().getBooleanExtra("openInbox", false)) desk.postDelayed(() -> {
+      String owner = store.get("chat.owner");
+      if (!owner.isEmpty()) new FollowUpDesk(this, owner).show();
+    }, 700);
   }
 
   void deskAction(String action) {
@@ -163,6 +169,16 @@ public class ChatDesk extends Activity {
       case "connect": connectOrStop(); break;
       case "forget": if (!ChatService.running) forget(); break;
       case "routine": RoutineDesk.show(this); break;
+      case "ask": RoutineDesk.ask(this, Routine.get(store.p)); break;
+      case "quick-sleep":
+        quick("sleeping", 8 * 3600000L, "So raha hoon — subah baat karte hain", "😴 Mimi on night duty for 8 hours");
+        break;
+      case "quick-focus":
+        quick("busy", 0, "Focus time — thodi der mein reply", "🎧 Focus mode on. Family can still reach you.");
+        break;
+      case "quick-off":
+        quick("off", 0, "", "✓ Mimi is free — replies paused");
+        break;
       case "stats": Insights.show(this); break;
       case "vip": Vip.edit(this); break;
       case "inbox":
@@ -192,6 +208,16 @@ public class ChatDesk extends Activity {
       return;
     }
     activate(m, 0);
+  }
+
+  void quick(String mode, long durationMs, String why, String toast) {
+    if (store.get("chat.owner").isEmpty()) {
+      Toast.makeText(this, "Set up your Business number first.", Toast.LENGTH_SHORT).show();
+      setup();
+      return;
+    }
+    saveMode(mode, durationMs, why, !why.isEmpty());
+    Toast.makeText(this, toast, Toast.LENGTH_SHORT).show();
   }
 
   void activate(String m, long durationMs) {
@@ -445,10 +471,25 @@ public class ChatDesk extends Activity {
       Routine routine = Routine.get(store.p);
       boolean paused = Routine.paused(store.p);
       long nowMs = System.currentTimeMillis(), tracked = 0;
+      org.json.JSONArray slots = new org.json.JSONArray();
+      for (Routine.Slot slot : routine.today(nowMs)) {
+        try {
+          slots.put(Store.obj("name", slot.name, "start", slot.startText, "end", slot.endText,
+            "now", slot.start <= nowMs && nowMs < slot.end, "mode", slot.mode));
+        } catch (org.json.JSONException e) { throw new IllegalStateException(e); }
+      }
+      Routine.Slot next = routine.next(nowMs);
+      String nextUp = "";
+      if (paused) nextUp = "Routine paused — tap Resume in My routine";
+      else if (next != null) {
+        long mins = Math.max(0, (next.start - nowMs) / 60000);
+        nextUp = mins <= 180 ? "Next · " + next.name + " in " + mins + " min" : "Next · " + next.name + " at " + next.startText;
+      }
       for (long[] value : TimeLog.day(store.p, Routine.date(java.util.Calendar.getInstance()), nowMs).values()) tracked += value[0];
       try {
         String state = Store.obj("mode", m, "network", linked ? "Linked" : live ? "Connecting" : "Offline",
           "plan", routine.planLine(nowMs), "routine", routine.statusLine(nowMs, paused),
+          "slots", slots, "nextUp", nextUp,
           "tracked", tracked <= 0 ? "" : Insights.duration(tracked), "routineOn", routine.enabled(), "paused", paused,
           "reason", selected.reason.isEmpty() ? "" : (selected.share ? "Shared reason: " : "Private reason: ") + selected.reason,
           "timer", timer, "notes", ChatService.notes, "code", code, "activity", ChatService.status,

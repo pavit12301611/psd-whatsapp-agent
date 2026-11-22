@@ -116,7 +116,14 @@ public class ChatService extends Service {
       .setContentText(body.length() == 0 ? "Open Mimi to see your notes." : body.toString())
       .setStyle(new Notification.BigTextStyle().bigText(body.toString()))
       .setAutoCancel(true)
-      .setContentIntent(openDesk())
+      .setContentIntent(
+        PendingIntent.getActivity(
+          this,
+          4,
+          new Intent(this, ChatDesk.class).putExtra("openInbox", true),
+          PendingIntent.FLAG_IMMUTABLE
+        )
+      )
       .build();
     getSystemService(NotificationManager.class).notify(72, n);
     status = counts + ". Tap the notification for the summary.";
@@ -188,16 +195,30 @@ public class ChatService extends Service {
       public void run() {
         if (closed) return;
         applyRoutine(System.currentTimeMillis());
+        try {
+          // Keeps "Next · Study in 32 min" and the live countdown current without opening the app.
+          getSystemService(NotificationManager.class).notify(ID, notification());
+        } catch (Exception ignored) {}
         routineTick.postDelayed(this, 30000); // 30s is precise enough for HH:MM blocks
       }
     });
   }
 
+  /** "in 32 min", "in 1h 10m" or "at 7:00 am" — readable at a glance. */
+  private static String when(Routine.Slot slot, long now) {
+    long mins = (slot.start - now) / 60000;
+    if (mins <= 0) return "now";
+    if (mins < 60) return "in " + mins + " min";
+    if (mins < 20 * 60) return "in " + (mins / 60) + "h " + (mins % 60) + "m";
+    return "at " + slot.startText;
+  }
+
   private Notification notification() {
-    PendingIntent open = PendingIntent.getActivity(
+    PendingIntent open = openDesk();
+    PendingIntent setup = PendingIntent.getActivity(
       this,
-      0,
-      new Intent(this, ChatDesk.class),
+      5,
+      new Intent(this, ChatDesk.class).putExtra("openRoutine", true),
       PendingIntent.FLAG_IMMUTABLE
     );
     PendingIntent stop = PendingIntent.getService(
@@ -206,39 +227,56 @@ public class ChatService extends Service {
       new Intent(this, ChatService.class).setAction("stop"),
       PendingIntent.FLAG_IMMUTABLE
     );
+    Store s = new Store(this);
+    Routine routine = Routine.get(s.p);
+    long now = System.currentTimeMillis();
+    boolean paused = Routine.paused(s.p), configured = !s.get("chat.owner").isEmpty();
+    Routine.Slot live = configured && routine.enabled() ? routine.active(now) : null,
+      next = configured ? routine.next(now) : null;
+    String nextLine = next == null
+      ? (configured ? "No more blocks scheduled" : "Add your routine to plan the day")
+      : "Next · " + next.name + " " + when(next, now);
+    String title = !mode.equals("off") && live != null
+      ? "Mimi · " + live.name
+      : mode.equals("off") ? "Mimi · Replies paused" : "Mimi · " + mode;
+    String text;
+    if (paused && configured) text = "Routine paused · " + nextLine;
+    else if (live != null && !mode.equals("off")) text = live.name + " till " + live.endText + " · " + nextLine;
+    else if (connected()) text = nextLine;
+    else text = "Connecting… " + nextLine;
+    long countdown = 0;
+    if (mode.equals("sleeping") && sleepUntil > 0) countdown = sleepUntil;
+    else if (next != null && next.start > now && next.start - now < 86400000L) countdown = next.start;
     Notification.Builder builder = new Notification.Builder(this, "mimi-chat")
       .setSmallIcon(getResources().getIdentifier("pocket_note", "drawable", getPackageName()))
-      .setContentTitle("Mimi · Linked chat")
-      .setContentText(
-        mode.equals("off")
-          ? "Auto-replies paused"
-          : "Answering incoming direct texts · " + mode
-      )
+      .setContentTitle(title)
+      .setContentText(text)
+      .setStyle(new Notification.BigTextStyle().bigText(text))
       .setContentIntent(open)
       .setOngoing(true);
+    if (countdown > 0) builder
+      .setWhen(countdown)
+      .setUsesChronometer(true)
+      .setChronometerCountDown(true)
+      .setShowWhen(true)
+      .setSubText(mode.equals("sleeping") && sleepUntil > 0 ? "wake-up" : "next block");
     if (!mode.equals("off")) {
       PendingIntent pause = PendingIntent.getService(
         this,
         2,
-        new Intent(this, ChatService.class)
-          .setAction("mode")
-          .putExtra("value", "off"),
+        new Intent(this, ChatService.class).setAction("mode").putExtra("value", "off"),
         PendingIntent.FLAG_IMMUTABLE
       );
-      builder.addAction(
-        new Notification.Action.Builder(null, "Pause replies", pause).build()
-      );
+      builder.addAction(new Notification.Action.Builder(null, "Pause replies", pause).build());
     }
-    if (sleepUntil > 0 && mode.equals("sleeping")) builder
-      .setWhen(sleepUntil)
-      .setUsesChronometer(true)
-      .setChronometerCountDown(true)
-      .setShowWhen(true);
+    builder.addAction(new Notification.Action.Builder(null, "Routine", setup).build());
     return builder
-      .addAction(
-        new Notification.Action.Builder(null, "Stop agent", stop).build()
-      )
+      .addAction(new Notification.Action.Builder(null, "Stop agent", stop).build())
       .build();
+  }
+
+  private boolean connected() {
+    return linked;
   }
 
   public int onStartCommand(Intent intent, int flags, int id) {

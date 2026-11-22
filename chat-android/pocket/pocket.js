@@ -47,6 +47,8 @@ const tools = [
   ],
   ["settings", "settings-2", "Account & AI", "Manage your number & provider"],
 ];
+const esc = (value) =>
+  String(value ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const icon = (name) =>
   `<svg aria-hidden="true" class="icon"><use href="#i-${name}"></use></svg>`;
 document
@@ -97,6 +99,19 @@ function renderDesk(s) {
   byId("routineStatus").textContent =
     s.routine || "Routine off — add your first block.";
   byId("plan").textContent = s.plan || "No blocks yet.";
+  const slots = Array.isArray(s.slots) ? s.slots : [];
+  byId("timeline").innerHTML = slots.length
+    ? slots
+        .map(
+          (slot) =>
+            `<li class="slot${slot.now ? " now" : ""}"><b>${esc(slot.start)}</b><span>${esc(slot.name)}</span><small>${esc(slot.end)}</small></li>`,
+        )
+        .join("")
+    : '<li class="slot empty">No blocks today — tap Edit routine to add school, study or sleep.</li>';
+  const nextUp = byId("nextUp");
+  nextUp.textContent = s.nextUp || "";
+  nextUp.hidden = !s.nextUp;
+  byId("chip").classList.toggle("pulse", mode !== "off");
   const tracked = byId("tracked");
   tracked.textContent = s.tracked ? `${s.tracked} tracked today` : "";
   tracked.hidden = !s.tracked;
@@ -109,12 +124,29 @@ function renderDesk(s) {
     s.network === "Offline" ? "Connect WhatsApp" : "Stop chat engine";
 }
 // Petting is a visual-only interaction: never call the engine or change availability.
+const petLines = {
+  off: ["♥ Mimi hops!", "♥ Boop!", "♥ Mimi loves you", "♡ Again!"],
+  busy: ["♥ Coffee break!", "☕ Sip sip…", "♥ Focus buddy"],
+  sleeping: ["☾ Sweet dreams…", "☾ Shhh…", "♥ Sleepy bunny"],
+  driving: ["♥ Beep beep!", "🚗 Vroom!", "♥ Eyes on road"],
+};
+let pets = 0;
 byId("pet").addEventListener("click", () => {
-  byId("petLine").textContent = {
-    off: "♥ Mimi hops for you!", busy: "♥ Coffee break!", sleeping: "☾ Sweet dreams…", driving: "♥ Beep beep!"
-  }[previous];
+  const mode = previous in petLines ? previous : "off";
+  const lines = petLines[mode];
+  byId("petLine").textContent = lines[pets++ % lines.length];
   const art = byId("island");
-  art.classList.remove("react"); void art.offsetWidth; art.classList.add("react");
+  art.classList.remove("hop");
+  void art.offsetWidth;
+  art.classList.add("hop");
+  const box = byId("sparks");
+  box.innerHTML = "";
+  for (let i = 1; i <= 5; i++) {
+    const heart = document.createElement("span");
+    heart.className = `spark s${i}`;
+    box.append(heart);
+  }
+  setTimeout(() => (box.innerHTML = ""), 1000);
 });
 const onPhone = location.hostname === "pocket.mimi.invalid";
 renderDesk({ mode: "off", network: "Offline" });
@@ -126,8 +158,13 @@ document.addEventListener("click", (e) => {
     return;
   }
   // Browser preview never accesses credentials or impersonates a linked session.
+  const quick = { "quick-sleep": "sleeping", "quick-focus": "busy", "quick-off": "off" };
   if (action in vibes) {
     renderDesk({ mode: action, network: "Offline" });
+    return;
+  }
+  if (action in quick) {
+    renderDesk({ mode: quick[action], network: "Offline" });
     return;
   }
   const t = tools.find((item) => item[0] === action);

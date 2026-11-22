@@ -51,8 +51,10 @@
           <span class="pill" id="chip">● &nbsp; Replies paused</span>
           <p id="reason" hidden></p>
           <p id="timer" hidden></p>
+          <p id="nextUp" class="nextUp" hidden></p>
         </div>
         <button type="button" id="pet" class="world" aria-label="Pet Mimi">
+          <span id="sparks" aria-hidden="true"></span>
           <picture>
             <source id="frames" media="(prefers-reduced-motion: no-preference)" srcset="art/loop-off.svg" />
           <img
@@ -69,6 +71,12 @@
         <h2>Set your vibe</h2>
         <p>Pick a mode. Mimi will follow your lead.</p>
         <div class="grid" id="choices"></div>
+        <div class="quick">
+          <button data-act="quick-sleep"><i data-icon="moon-star"></i> Sleep 8h</button
+          ><button data-act="quick-focus"><i data-icon="headphones"></i> Focus now</button
+          ><button data-act="quick-off"><i data-icon="check"></i> I’m free</button
+          ><button data-act="ask"><i data-icon="sparkle"></i> Ask Mimi</button>
+        </div>
         <div class="hint">
           <i data-icon="smartphone"></i> Saved on this phone, even when offline.
         </div>
@@ -83,6 +91,7 @@
             <span class="pill quiet" id="tracked" hidden></span>
           </div>
           <p id="plan">No blocks yet. Add school, study or sleep time.</p>
+          <ol class="timeline" id="timeline"></ol>
           <div class="planActions">
             <button data-act="routine" class="primary">Edit routine</button
             ><button data-act="stats">Time insights</button
