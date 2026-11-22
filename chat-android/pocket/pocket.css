@@ -577,3 +577,14 @@ button.world { position:relative; border:0; background:transparent; border-radiu
 .sheetHead h2 { margin:2px 0 0; font-size:22px; letter-spacing:-.7px; }
 #demo p { padding:0 18px; }
 #demo button { margin:0 18px; min-height:48px; }
+
+/* Routine card */
+.planCard { background:#fffefa; border:1px solid #e4dfdc; border-radius:24px; padding:20px 22px; display:grid; gap:12px; }
+.planTop { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.planTop strong { font-size:17px; letter-spacing:-.3px; }
+.planCard p { margin:0; color:#6a6472; font-size:14px; }
+.planActions { display:flex; flex-wrap:wrap; gap:8px; }
+.planActions button { min-height:44px; padding:0 16px; border-radius:14px; border:1px solid #ddd6e6; background:#faf7fc; font-weight:700; font-size:14px; }
+.planActions .primary { background:#604498; border-color:#604498; color:#fff; }
+.pill.quiet { background:#f0ecf7; color:#5a4a72; }
+@media (max-width:560px) { .planActions button { flex:1 1 140px; } }

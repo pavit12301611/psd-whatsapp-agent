@@ -56,3 +56,13 @@ The launcher now shows a cream bunny with a mint scarf and pink heart. Open Pock
 
 ### Pocket Desk 0.8.2 · Native pocket panels
 Busy, sleep presets/custom minutes/wake-up time, Reply Studio, account setup, Call Shield and the follow-up inbox now use bunny headers, section colors and rounded controls. Destructive actions use a distinct confirmation palette. Forms and notes stay in secure native dialogs; the browser preview does not collect credentials. Android-owned permission and install prompts retain the system appearance.
+
+### Pocket Desk 0.9.0 · Weekly routine, priority circle and time insights
+- **Routine** (`Routine`: My weekly routine): blocks with a name, kind (school, study, coaching, work, sleep, driving, custom), start/end, any set of weekdays, an optional reason and greeting language. A one-off date replaces that day's weekly plan; "Mark today as a day off" skips it. Mimi's native service re-reads the timetable every 30 seconds, so blocks switch availability on their own — also while the phone is in your pocket and the app is closed.
+- **Manual mode pauses the routine.** Picking Busy, Sleeping or Driving by hand (or Pause in the notification) stops the timetable until you press *Resume routine*.
+- **Ask Mimi**: local, offline answers for "aaj kya plan hai", "abhi free hoon?", "next kab", "neend" and tomorrow's plan. Answers come from this phone's timetable only.
+- **Priority circle** (`Vip`): up to 40 numbers that never get Mimi's auto-reply. You get a high-priority notification instead, marked urgent when the sender's words say so. Everything else still gets the away reply and lands in the digest.
+- **Digest**: when a block ends, the engine reports what arrived while you were away (counts, urgent count, up to six senders) as a notification. Nothing is auto-forwarded to anyone.
+- **Time insights** (`TimeLog`): per-block minutes for today, the last seven days and the last four weeks, with a plain CSV export through Android's share sheet. Logged locally only while the chat agent runs; stored in app-private preferences.
+- AI remains optional: message-taking works with no key, and adding a Gemini/Groq key still unlocks conversational replies.
+- Note: the 0.8.x APK was signed with a key that lived only in the build sandbox. If that key is unavailable, a 0.9.0 build carries a new certificate and therefore needs a fresh install (and one fresh WhatsApp link); it cannot update 0.8.x in place.

@@ -52,6 +52,8 @@ async function init(config) {
       emit("status", "Sleep timer finished. Auto-replies are paused.");
     },
     onNote: (item) => emit("note", item),
+    onDigest: (summary) => emit("digest", summary),
+    onPriority: (message) => emit("priority", message),
   });
   shield = callShield({
     owner,
@@ -174,6 +176,14 @@ input.on("line", (line) => {
       init(m).catch(() => fail("Could not initialise local chat session."));
     } else if (m.type === "calls" && shield) {
       shield.configure(m.calls);
+    } else if (m.type === "routine" && core) {
+      const count = core.configure({ vip: m.vip, digest: m.digest });
+      emit(
+        "status",
+        count
+          ? `${count} priority contact${count === 1 ? "" : "s"} bypass Mimi.`
+          : "Routine synced. Mimi will follow your timetable.",
+      );
     } else if (m.type === "mode" && core) {
       shield.configure(m.calls);
       const mode = core.restore(m);

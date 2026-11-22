@@ -320,3 +320,56 @@ test("restored sleep resumes remaining time, never extends or revives expired ti
   assert.equal(e.restore(saved), "off");
   assert.equal(e.active, false);
 });
+test("priority contacts bypass Mimi; everyone else is greeted and lands in one digest", async () => {
+  const out = [], priority = [], digests = [], status = [];
+  const e = engine({
+    owner,
+    scope: "all-direct",
+    provider: "test",
+    clock: () => T,
+    report: (s) => status.push(s),
+    onPriority: (p) => priority.push(p),
+    onDigest: (d) => digests.push(d),
+  });
+  e.connected(true);
+  assert.equal(e.configure({ vip: ["+91 90000 00001", "nope"], digest: true }), 1);
+  e.select("busy", 0, "hi", "School · back at 2:00 pm");
+  const send = (jid, text) => out.push([jid, text]);
+  await e.handle("notify", msg(a, "v1", "emergency, hospital"), () => null, send);
+  await e.handle("notify", msg(a, "v1", "emergency, hospital"), () => null, send);
+  assert.equal(out.length, 0, "VIP numbers are never auto-replied");
+  assert.equal(priority.length, 1, "duplicate alerts are suppressed");
+  assert.equal(priority[0].urgent, true);
+  await e.handle("notify", msg(b, "n1", "notes bhej dena"), () => null, send);
+  assert.ok(out.length >= 1);
+  assert.equal(digests.length, 0);
+  e.select("off");
+  assert.equal(digests.length, 1);
+  assert.equal(digests[0].total, 1);
+  assert.equal(digests[0].urgent, 0);
+  assert.match(status.at(-1) || "", /Direct message/);
+});
+
+test("digest can be switched off and never fires twice for one window", async () => {
+  const digests = [];
+  const e = engine({
+    owner,
+    scope: "all-direct",
+    provider: "test",
+    clock: () => T,
+    onDigest: (d) => digests.push(d),
+  });
+  e.connected(true);
+  e.configure({ vip: [], digest: false });
+  e.select("busy");
+  await e.handle("notify", msg(b, "m1"), () => null, async () => {});
+  e.select("off");
+  assert.equal(digests.length, 0, "opt-out wins");
+  e.configure({ digest: true });
+  e.select("busy");
+  await e.handle("notify", msg(b, "m2"), () => null, async () => {});
+  e.select("off");
+  e.select("off");
+  assert.equal(digests.length, 1);
+  assert.equal(digests[0].total, 1);
+});

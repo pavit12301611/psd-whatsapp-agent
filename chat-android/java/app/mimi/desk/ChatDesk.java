@@ -162,6 +162,9 @@ public class ChatDesk extends Activity {
       case "settings": setup(); break;
       case "connect": connectOrStop(); break;
       case "forget": if (!ChatService.running) forget(); break;
+      case "routine": RoutineDesk.show(this); break;
+      case "stats": Insights.show(this); break;
+      case "vip": Vip.edit(this); break;
       case "inbox":
         String owner = store.get("chat.owner");
         if (!owner.isEmpty()) new FollowUpDesk(this, owner).show();
@@ -196,6 +199,8 @@ public class ChatDesk extends Activity {
   }
 
   void saveMode(String m, long durationMs, String why, boolean share) {
+    // A manual choice is a deliberate override; the timetable waits until resumed.
+    Routine.pause(store.p, true);
     Availability.set(
       store.p,
       store.get("chat.owner"),
@@ -437,8 +442,14 @@ public class ChatDesk extends Activity {
       long secs = Math.max(0, (until - System.currentTimeMillis() + 999) / 1000);
       String timer = until == 0 ? "" : String.format(java.util.Locale.getDefault(),
         "Auto-pause in %d:%02d:%02d", secs / 3600, (secs / 60) % 60, secs % 60);
+      Routine routine = Routine.get(store.p);
+      boolean paused = Routine.paused(store.p);
+      long nowMs = System.currentTimeMillis(), tracked = 0;
+      for (long[] value : TimeLog.day(store.p, Routine.date(java.util.Calendar.getInstance()), nowMs).values()) tracked += value[0];
       try {
         String state = Store.obj("mode", m, "network", linked ? "Linked" : live ? "Connecting" : "Offline",
+          "plan", routine.planLine(nowMs), "routine", routine.statusLine(nowMs, paused),
+          "tracked", tracked <= 0 ? "" : Insights.duration(tracked), "routineOn", routine.enabled(), "paused", paused,
           "reason", selected.reason.isEmpty() ? "" : (selected.share ? "Shared reason: " : "Private reason: ") + selected.reason,
           "timer", timer, "notes", ChatService.notes, "code", code, "activity", ChatService.status,
           "tester", !"all-direct".equals(store.p.getString("chat.scope", "all-direct")),
@@ -683,6 +694,7 @@ public class ChatDesk extends Activity {
         }
         Availability.forget(store.p, owner);
         new FollowUps(store, owner).forget();
+        store.p.edit().remove(Routine.KEY).remove(Routine.PAUSED).remove(Vip.KEY).remove(TimeLog.KEY).apply();
         store.p
           .edit()
           .remove(CallRules.key(owner))

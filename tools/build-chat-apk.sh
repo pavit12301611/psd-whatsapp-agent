@@ -11,7 +11,7 @@ if [[ ${1:-} == --pocket-preview ]]; then
   # A separate app ID keeps the existing install and its private data intact.
   sed 's/package="app.mimi.desk"/package="app.mimi.desk.pocket"/; s/android:name="[.]Chat/android:name="app.mimi.desk.Chat/g; s/android:label="Mimi Chat Desk"/android:label="Mimi Pocket Desk"/' "$MANIFEST" > "$B/preview-manifest.tmp"
   mkdir -p "$B/preview"; mv "$B/preview-manifest.tmp" "$B/preview/AndroidManifest.xml"
-  MANIFEST=$B/preview/AndroidManifest.xml; OUT=releases/Mimi-Pocket-Desk.apk
+  MANIFEST=$B/preview/AndroidManifest.xml; OUT=${MIMI_OUT:-releases/Mimi-Pocket-Desk.apk}
 elif [[ -f "$OUT" && ! -f "$K" ]]; then
   echo 'Original signing key missing. Use --pocket-preview for a separate install.' >&2; exit 1
 fi
@@ -27,7 +27,7 @@ from pathlib import Path
 from zipfile import ZipFile,ZIP_DEFLATED
 with ZipFile('build/chat-apk/assets/chat-runtime.zip','w',ZIP_DEFLATED) as z:
     base=Path('chat')
-    for file in [*(base/name for name in ('mobile.mjs','mobile-engine.mjs','call-shield.mjs','routing.mjs','providers.mjs','package.json')),*(base/'node_modules').rglob('*')]:
+    for file in [*(base/name for name in ('mobile.mjs','mobile-engine.mjs','call-shield.mjs','routing.mjs','routine.mjs','providers.mjs','package.json')),*(base/'node_modules').rglob('*')]:
         if not file.is_file() or file.is_symlink() or '.bin' in file.parts or file.suffix in ('.ts','.map'):continue
         z.write(file,file.relative_to(base))
     z.write('licenses/Bun-1.4.5.md','licenses/Bun-1.4.5.md')

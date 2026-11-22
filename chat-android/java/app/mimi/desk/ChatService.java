@@ -47,6 +47,8 @@ public class ChatService extends Service {
     );
   }
 
+  private final Handler routineTick = new Handler(Looper.getMainLooper());
+  private static volatile String routineBlock;
   static volatile long sleepUntil;
   static volatile int notes;
   static volatile String mode = "off",
@@ -63,13 +65,132 @@ public class ChatService extends Service {
 
   public void onCreate() {
     super.onCreate();
-    getSystemService(NotificationManager.class).createNotificationChannel(
+    NotificationManager channels = getSystemService(NotificationManager.class);
+    channels.createNotificationChannel(
       new NotificationChannel(
         "mimi-chat",
         "Linked chat agent",
         NotificationManager.IMPORTANCE_LOW
       )
     );
+    channels.createNotificationChannel(
+      new NotificationChannel(
+        "mimi-digest",
+        "Missed message digest",
+        NotificationManager.IMPORTANCE_DEFAULT
+      )
+    );
+    NotificationChannel priority = new NotificationChannel(
+      "mimi-priority",
+      "Priority contacts",
+      NotificationManager.IMPORTANCE_HIGH
+    );
+    priority.enableVibration(true);
+    channels.createNotificationChannel(priority);
+  }
+
+  private PendingIntent openDesk() {
+    return PendingIntent.getActivity(
+      this,
+      0,
+      new Intent(this, ChatDesk.class),
+      PendingIntent.FLAG_IMMUTABLE
+    );
+  }
+
+  /** A block ended: hand back what arrived, once. */
+  private void digest(JSONObject summary) {
+    String counts = summary.optString("text", "Messages waiting");
+    StringBuilder body = new StringBuilder();
+    JSONArray entries = summary.optJSONArray("entries");
+    if (entries != null) for (int i = 0; i < entries.length(); i++) {
+      JSONObject e = entries.optJSONObject(i);
+      if (e == null) continue;
+      if (body.length() > 0) body.append(" · ");
+      body.append(e.optString("sender")).append(": ").append(e.optString("text"));
+      if (body.length() > 320) break;
+    }
+    Notification n = new Notification.Builder(this, "mimi-digest")
+      .setSmallIcon(getResources().getIdentifier("pocket_note", "drawable", getPackageName()))
+      .setContentTitle("Mimi · " + counts)
+      .setContentText(body.length() == 0 ? "Open Mimi to see your notes." : body.toString())
+      .setStyle(new Notification.BigTextStyle().bigText(body.toString()))
+      .setAutoCancel(true)
+      .setContentIntent(openDesk())
+      .build();
+    getSystemService(NotificationManager.class).notify(72, n);
+    status = counts + ". Tap the notification for the summary.";
+  }
+
+  /** A priority contact wrote; Mimi never answered on your behalf. */
+  private void priority(JSONObject message) {
+    String sender = message.optString("sender", "Priority contact");
+    String text = message.optString("text", "");
+    Notification n = new Notification.Builder(this, "mimi-priority")
+      .setSmallIcon(getResources().getIdentifier("pocket_note", "drawable", getPackageName()))
+      .setContentTitle((message.optBoolean("urgent") ? "Urgent · " : "Priority · ") + sender)
+      .setContentText(text)
+      .setStyle(new Notification.BigTextStyle().bigText(text))
+      .setAutoCancel(true)
+      .setContentIntent(openDesk())
+      .build();
+    getSystemService(NotificationManager.class).notify(73, n);
+    status = (message.optBoolean("urgent") ? "Urgent message from " : "Priority message from ") + sender + ".";
+  }
+
+  private void sendRoutine() {
+    try {
+      Store s = new Store(this);
+      write(
+        Store.obj(
+          "type",
+          "routine",
+          "vip",
+          new JSONArray(Vip.numbers(s.p)),
+          "digest",
+          true
+        )
+      );
+    } catch (Exception ignored) {}
+  }
+
+  /** Native owns the weekly timetable so switching never depends on the socket. */
+  private void applyRoutine(long now) {
+    Store s = new Store(this);
+    if (s.get("chat.owner").isEmpty()) return;
+    Routine routine = Routine.get(s.p);
+    String id = null;
+    Routine.Slot slot = null;
+    if (routine.enabled() && !Routine.paused(s.p)) {
+      slot = routine.active(now);
+      id = slot == null ? null : slot.id;
+    }
+    if (id == null ? routineBlock == null : id.equals(routineBlock)) return;
+    routineBlock = id;
+    TimeLog.mark(s.p, id, slot == null ? "" : slot.name, now);
+    try {
+      if (slot == null) {
+        Availability.set(s.p, s.get("chat.owner"), "off", 0, "", false, now);
+      } else {
+        long left = slot.mode.equals("sleeping") ? Math.max(60000, slot.end - now) : 0;
+        Availability.set(s.p, s.get("chat.owner"), slot.mode, left, slot.reasonText(), true, now);
+      }
+      syncSelection();
+      changed();
+    } catch (Exception e) {
+      status = "Could not apply your routine. Check the block times.";
+    }
+  }
+
+  private void scheduleRoutine() {
+    routineTick.removeCallbacksAndMessages(null);
+    routineTick.post(new Runnable() {
+      public void run() {
+        if (closed) return;
+        applyRoutine(System.currentTimeMillis());
+        routineTick.postDelayed(this, 30000); // 30s is precise enough for HH:MM blocks
+      }
+    });
   }
 
   private Notification notification() {
@@ -131,6 +252,7 @@ public class ChatService extends Service {
       mode = "off";
       status = "Preparing chat engine on this phone…";
       startForeground(ID, notification());
+      scheduleRoutine();
       new Thread(this::launch, "Mimi-chat").start();
     } else if ("calls".equals(action) && linked) {
       try {
@@ -146,6 +268,20 @@ public class ChatService extends Service {
         status = "Cannot update priority rules; agent stopped.";
         stopSelf();
       }
+    } else if ("routine".equals(action)) {
+      try {
+        sendRoutine();
+        Availability current = Availability.get(
+          new Store(this).p,
+          new Store(this).get("chat.owner"),
+          System.currentTimeMillis()
+        );
+        routineBlock = current.mode.equals("off") ? null : current.mode;
+        applyRoutine(System.currentTimeMillis());
+        syncSelection();
+      } catch (Exception e) {
+        status = "Could not sync your routine.";
+      }
     } else if ("sync".equals(action) || "mode".equals(action)) {
       try {
         // Notification Pause is also a durable user selection.
@@ -153,6 +289,7 @@ public class ChatService extends Service {
           "mode".equals(action) && "off".equals(intent.getStringExtra("value"))
         ) {
           Store s = new Store(this);
+          Routine.pause(s.p, true); // an explicit pause wins over the timetable
           Availability.set(
             s.p,
             s.get("chat.owner"),
@@ -269,6 +406,8 @@ public class ChatService extends Service {
           provider.equals("test") ? "" : s.secret(provider)
         )
       );
+      sendRoutine();
+      applyRoutine(System.currentTimeMillis());
       boolean reported = false;
       try (
         BufferedReader in = new BufferedReader(
@@ -325,6 +464,14 @@ public class ChatService extends Service {
                     : "Listening for new direct texts.";
                 }
                 break;
+              case "digest":
+                JSONObject summary = event.optJSONObject("value");
+                if (summary != null) digest(summary);
+                break;
+              case "priority":
+                JSONObject priority = event.optJSONObject("value");
+                if (priority != null) priority(priority);
+                break;
               case "note":
                 notes++;
                 try {
@@ -369,6 +516,11 @@ public class ChatService extends Service {
 
   public synchronized void onDestroy() {
     closed = true;
+    routineTick.removeCallbacksAndMessages(null);
+    try {
+      TimeLog.mark(new Store(this).p, null, "", System.currentTimeMillis());
+    } catch (Exception ignored) {}
+    routineBlock = null;
     sleepUntil = 0;
     linked = false;
     mode = "off";

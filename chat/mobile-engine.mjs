@@ -1,4 +1,5 @@
 import { conversation, incoming } from "./routing.mjs";
+import { digest, urgent } from "./routine.mjs";
 
 // A selection is a new generation. Re-check generation before every send, not
 // just before an async model request: Pause can arrive while a request is in flight.
@@ -13,13 +14,19 @@ export function engine({
   cancel = clearTimeout,
   onExpire = () => {},
   onNote = () => {},
+  onDigest = () => {},
+  onPriority = () => {},
 }) {
   let generation = 0,
     mode = "off",
     since = Infinity,
     online = false;
   const chats = new Map(),
-    optedOut = new Set();
+    optedOut = new Set(),
+    prioritySeen = new Set();
+  let vip = new Set(),
+    digestOn = true,
+    pending = [];
   let until = 0,
     alarm,
     language = "en",
@@ -35,6 +42,13 @@ export function engine({
     return online && mode !== "off";
   }
   function select(value, durationMs = 0, lang = "en", why = "") {
+    // A finished away window is the natural moment to hand back what arrived.
+    if (mode !== "off" && pending.length) {
+      const summary = digest(pending);
+      pending = [];
+      if (digestOn) onDigest(summary);
+    }
+    if (mode !== "off") for (const id of prioritySeen) prioritySeen.delete(id);
     if (alarm != null) cancel(alarm);
     alarm = undefined;
     until = 0;
@@ -70,7 +84,21 @@ export function engine({
     const m = await incoming(raw, scope, since, resolveLid, clock());
     if (!m || !valid()) return;
     const jid = m.jid,
+      sender = jid.split("@")[0],
+      name = jid.endsWith("@lid")
+        ? "private chat " + sender
+        : "+" + sender,
       cmd = m.text.toLowerCase();
+    // Priority contacts skip Mimi entirely: the owner is alerted, nobody is auto-replied.
+    if (vip.has(sender)) {
+      if (!prioritySeen.has(m.id)) {
+        prioritySeen.add(m.id);
+        if (prioritySeen.size > 500) prioritySeen.delete(prioritySeen.values().next().value);
+        onPriority({ sender: name, text: m.text.slice(0, 600), urgent: urgent(m.text) });
+        report(`Priority message from ${name}.`);
+      }
+      return "priority";
+    }
     if (optedOut.has(jid) && cmd !== "/start") return;
     if (cmd === "/start") optedOut.delete(jid);
     if (cmd === "/stop") optedOut.add(jid);
@@ -95,9 +123,6 @@ export function engine({
       if (!valid()) throw Error("Paused");
       await send(to, text);
     };
-    const name = jid.endsWith("@lid")
-      ? "private chat " + jid.split("@")[0]
-      : "+" + jid.split("@")[0];
     const result = await chats.get(jid)(
       m,
       (t) => deliver(jid, t),
@@ -112,6 +137,10 @@ export function engine({
         onNote(kind ? { kind, sender: name, text: t.slice(0, 600) } : null);
       },
     );
+    if (valid() && result !== "duplicate" && digestOn) {
+      pending.push({ sender: name, text: m.text.slice(0, 200), urgent: urgent(m.text) });
+      if (pending.length > 100) pending.shift();
+    }
     if (valid() && result !== "duplicate")
       report(
         result === "handoff failed"
@@ -138,6 +167,17 @@ export function engine({
       );
     },
     connected,
+    // Native owns the weekly routine; the engine only needs who may bypass Mimi.
+    configure({ vip: numbers = [], digest: enabled = true } = {}) {
+      vip = new Set(
+        (Array.isArray(numbers) ? numbers : [])
+          .map((n) => String(n).replace(/[^0-9]/g, ""))
+          .filter((n) => /^[1-9][0-9]{6,14}$/.test(n))
+          .slice(0, 50),
+      );
+      digestOn = enabled !== false;
+      return vip.size;
+    },
     handle,
     get generation() {
       return generation;

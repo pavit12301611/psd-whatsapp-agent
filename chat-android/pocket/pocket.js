@@ -94,6 +94,12 @@ function renderDesk(s) {
     byId(key).textContent = s[key] || "";
     byId(key).hidden = !s[key];
   }
+  byId("routineStatus").textContent =
+    s.routine || "Routine off — add your first block.";
+  byId("plan").textContent = s.plan || "No blocks yet.";
+  const tracked = byId("tracked");
+  tracked.textContent = s.tracked ? `${s.tracked} tracked today` : "";
+  tracked.hidden = !s.tracked;
   byId("activity").textContent = s.activity || "Engine offline";
   byId("scope").textContent =
     `Audience: ${s.tester ? "test number only" : "direct chats"} · ${s.notes || 0} notes this session`;
