@@ -73,3 +73,12 @@ Busy, sleep presets/custom minutes/wake-up time, Reply Studio, account setup, Ca
 - Desk motion: springy hover/press on tiles and buttons, a hop on the bunny whenever the mood changes or you pet her, hearts that float up on petting, a pop-in timeline of today's blocks with the live block breathing, and a pulsing status chip. Everything is wrapped in `prefers-reduced-motion`, so turning animations off keeps the desk still.
 - One-tap shortcuts under the modes: **Sleep 8h**, **Focus now**, **I'm free** and **Ask Mimi**. Routine starters (school Mon–Sat 8–2, study daily 7–9 pm, sleep daily 11 pm–7 am) build a full week in three taps.
 - **Signing key:** since sandbox `/tmp` is wiped between sessions, the Pocket Desk key now lives at `.mimi/mimi-signing.jks` in the workspace (git-ignored, never committed). Keep that file to publish future updates that install over this build.
+
+### Mimi Pocket 2 · side-by-side install
+Installs as `app.mimi.desk.pocket2` ("Mimi Pocket 2") and coexists with any earlier Pocket Desk build — nothing is uninstalled or cleared.
+
+```
+bash tools/build-chat-apk.sh --pocket-next     # → releases/Mimi-Pocket-2.apk
+```
+
+Both apps keep separate private storage, so Pocket 2 needs its own WhatsApp link (one pairing) and its own routine. Messages stay in WhatsApp; only the linked-device session and app settings are per-install. Run the chat engine in only one of them at a time so two devices never answer the same number. Future builds of Pocket 2 are ordinary in-place updates because `.mimi/mimi-signing.jks` is kept with the project.

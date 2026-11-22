@@ -7,11 +7,16 @@ mkdir -p "$B"/{assets,classes,dex,lib/arm64-v8a,downloads} releases
 MANIFEST=chat-android/AndroidManifest.xml
 OUT=releases/Mimi-Chat-Desk.apk
 K=${MIMI_KEYSTORE:-$HOME/.android/mimi-test.jks}; export MIMI_STORE_PASS=${MIMI_STORE_PASS:-android}
-if [[ ${1:-} == --pocket-preview ]]; then
+if [[ ${1:-} == --pocket-preview || ${1:-} == --pocket-next ]]; then
   # A separate app ID keeps the existing install and its private data intact.
-  sed 's/package="app.mimi.desk"/package="app.mimi.desk.pocket"/; s/android:name="[.]Chat/android:name="app.mimi.desk.Chat/g; s/android:label="Mimi Chat Desk"/android:label="Mimi Pocket Desk"/' "$MANIFEST" > "$B/preview-manifest.tmp"
+  if [[ ${1:-} == --pocket-next ]]; then
+    ID=app.mimi.desk.pocket2; LABEL='Mimi Pocket 2'; OUT=${MIMI_OUT:-releases/Mimi-Pocket-2.apk}
+  else
+    ID=app.mimi.desk.pocket; LABEL='Mimi Pocket Desk'; OUT=${MIMI_OUT:-releases/Mimi-Pocket-Desk.apk}
+  fi
+  sed "s/package=\"app.mimi.desk\"/package=\"$ID\"/; s/android:name=\"[.]Chat/android:name=\"app.mimi.desk.Chat/g; s/android:label=\"Mimi Chat Desk\"/android:label=\"$LABEL\"/" "$MANIFEST" > "$B/preview-manifest.tmp"
   mkdir -p "$B/preview"; mv "$B/preview-manifest.tmp" "$B/preview/AndroidManifest.xml"
-  MANIFEST=$B/preview/AndroidManifest.xml; OUT=${MIMI_OUT:-releases/Mimi-Pocket-Desk.apk}
+  MANIFEST=$B/preview/AndroidManifest.xml
 elif [[ -f "$OUT" && ! -f "$K" ]]; then
   echo 'Original signing key missing. Use --pocket-preview for a separate install.' >&2; exit 1
 fi
