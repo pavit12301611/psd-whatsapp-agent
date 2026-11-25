@@ -82,3 +82,8 @@ bash tools/build-chat-apk.sh --pocket-next     # → releases/Mimi-Pocket-2.apk
 ```
 
 Both apps keep separate private storage, so Pocket 2 needs its own WhatsApp link (one pairing) and its own routine. Messages stay in WhatsApp; only the linked-device session and app settings are per-install. Run the chat engine in only one of them at a time so two devices never answer the same number. Future builds of Pocket 2 are ordinary in-place updates because `.mimi/mimi-signing.jks` is kept with the project.
+
+### Pocket Desk 0.9.2 · Ignore list (total silence)
+- **Ignore list** (desk tile and inside the routine card): up to 100 numbers Mimi must never touch. Her engine drops the message before any reply, note, priority alert or digest entry, so nothing is sent to that chat and nothing about it reaches you. `/start`, `/urgent` and `/callback` from those numbers are dropped too.
+- Ignoring a number removes it from the priority circle, so the two lists can never contradict each other. Calls are untouched by this list — Call Shield keeps its own rules.
+- The list stays on this phone (app-private preferences) and is re-sent to the chat engine whenever it changes or reconnects.

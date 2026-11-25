@@ -177,11 +177,14 @@ input.on("line", (line) => {
     } else if (m.type === "calls" && shield) {
       shield.configure(m.calls);
     } else if (m.type === "routine" && core) {
-      const count = core.configure({ vip: m.vip, digest: m.digest });
+      const rules = core.configure({ vip: m.vip, ignore: m.ignore, digest: m.digest });
+      const parts = [];
+      if (rules.priority) parts.push(`${rules.priority} priority`);
+      if (rules.ignored) parts.push(`${rules.ignored} ignored`);
       emit(
         "status",
-        count
-          ? `${count} priority contact${count === 1 ? "" : "s"} bypass Mimi.`
+        parts.length
+          ? `${parts.join(" · ")} contact rules synced.`
           : "Routine synced. Mimi will follow your timetable.",
       );
     } else if (m.type === "mode" && core) {

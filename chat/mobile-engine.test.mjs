@@ -332,7 +332,7 @@ test("priority contacts bypass Mimi; everyone else is greeted and lands in one d
     onDigest: (d) => digests.push(d),
   });
   e.connected(true);
-  assert.equal(e.configure({ vip: ["+91 90000 00001", "nope"], digest: true }), 1);
+  assert.deepEqual(e.configure({ vip: ["+91 90000 00001", "nope"], digest: true }), { priority: 1, ignored: 0 });
   e.select("busy", 0, "hi", "School · back at 2:00 pm");
   const send = (jid, text) => out.push([jid, text]);
   await e.handle("notify", msg(a, "v1", "emergency, hospital"), () => null, send);
@@ -372,4 +372,28 @@ test("digest can be switched off and never fires twice for one window", async ()
   e.select("off");
   assert.equal(digests.length, 1);
   assert.equal(digests[0].total, 1);
+});
+
+test("ignored numbers are silent: no reply, no alert, no note and no digest entry", async () => {
+  const out = [], priority = [], digests = [], notes = [];
+  const e = engine({
+    owner,
+    scope: "all-direct",
+    provider: "test",
+    clock: () => T,
+    onPriority: (p) => priority.push(p),
+    onDigest: (d) => digests.push(d),
+    onNote: (n) => notes.push(n),
+  });
+  e.connected(true);
+  assert.deepEqual(e.configure({ vip: [a], ignore: [a, "+91 90000 00002"], digest: true }), { priority: 1, ignored: 2 });
+  e.select("busy", 0, "hi", "School");
+  const send = (jid, text) => out.push([jid, text]);
+  await e.handle("notify", msg(a, "i1", "urgent hospital jana hai"), () => null, send);
+  await e.handle("notify", msg(b, "i2", "/callback 5 baje"), () => null, send);
+  assert.equal(out.length, 0, "nothing is ever sent to an ignored number");
+  assert.equal(priority.length, 0, "ignoring beats the priority list");
+  assert.equal(notes.length, 0);
+  e.select("off");
+  assert.equal(digests.length, 0, "ignored senders never appear in the digest");
 });

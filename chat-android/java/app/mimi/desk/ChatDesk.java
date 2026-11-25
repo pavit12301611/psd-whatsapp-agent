@@ -181,6 +181,7 @@ public class ChatDesk extends Activity {
         break;
       case "stats": Insights.show(this); break;
       case "vip": Vip.edit(this); break;
+      case "ignore": Ignore.edit(this); break;
       case "inbox":
         String owner = store.get("chat.owner");
         if (!owner.isEmpty()) new FollowUpDesk(this, owner).show();
@@ -735,7 +736,7 @@ public class ChatDesk extends Activity {
         }
         Availability.forget(store.p, owner);
         new FollowUps(store, owner).forget();
-        store.p.edit().remove(Routine.KEY).remove(Routine.PAUSED).remove(Vip.KEY).remove(TimeLog.KEY).apply();
+        store.p.edit().remove(Routine.KEY).remove(Routine.PAUSED).remove(Vip.KEY).remove(Ignore.KEY).remove(TimeLog.KEY).apply();
         store.p
           .edit()
           .remove(CallRules.key(owner))

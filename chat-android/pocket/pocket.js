@@ -45,6 +45,7 @@ const tools = [
     "Follow-up inbox",
     "Review callbacks & urgent notes",
   ],
+  ["ignore", "power", "Ignore list", "Total silence — no reply, no alert, no digest"],
   ["settings", "settings-2", "Account & AI", "Manage your number & provider"],
 ];
 const esc = (value) =>

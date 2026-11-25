@@ -154,6 +154,8 @@ public class ChatService extends Service {
           "routine",
           "vip",
           new JSONArray(Vip.numbers(s.p)),
+          "ignore",
+          new JSONArray(Ignore.numbers(s.p)),
           "digest",
           true
         )
