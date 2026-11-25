@@ -469,6 +469,11 @@ public class ChatDesk extends Activity {
       long secs = Math.max(0, (until - System.currentTimeMillis() + 999) / 1000);
       String timer = until == 0 ? "" : String.format(java.util.Locale.getDefault(),
         "Auto-pause in %d:%02d:%02d", secs / 3600, (secs / 60) % 60, secs % 60);
+      boolean otherApp = false;
+      try {
+        getPackageManager().getPackageInfo("app.mimi.desk.pocket", 0);
+        otherApp = !"app.mimi.desk.pocket".equals(getPackageName());
+      } catch (Exception ignored) {}
       Routine routine = Routine.get(store.p);
       boolean paused = Routine.paused(store.p);
       long nowMs = System.currentTimeMillis(), tracked = 0;
@@ -490,7 +495,7 @@ public class ChatDesk extends Activity {
       try {
         String state = Store.obj("mode", m, "network", linked ? "Linked" : live ? "Connecting" : "Offline",
           "plan", routine.planLine(nowMs), "routine", routine.statusLine(nowMs, paused),
-          "slots", slots, "nextUp", nextUp,
+          "slots", slots, "nextUp", nextUp, "otherApp", otherApp,
           "tracked", tracked <= 0 ? "" : Insights.duration(tracked), "routineOn", routine.enabled(), "paused", paused,
           "reason", selected.reason.isEmpty() ? "" : (selected.share ? "Shared reason: " : "Private reason: ") + selected.reason,
           "timer", timer, "notes", ChatService.notes, "code", code, "activity", ChatService.status,
@@ -736,7 +741,7 @@ public class ChatDesk extends Activity {
         }
         Availability.forget(store.p, owner);
         new FollowUps(store, owner).forget();
-        store.p.edit().remove(Routine.KEY).remove(Routine.PAUSED).remove(Vip.KEY).remove(Ignore.KEY).remove(TimeLog.KEY).apply();
+        store.p.edit().remove(Routine.KEY).remove(Routine.PAUSED).remove(Vip.KEY).remove(Ignore.KEY).remove(Links.KEY).remove(TimeLog.KEY).apply();
         store.p
           .edit()
           .remove(CallRules.key(owner))

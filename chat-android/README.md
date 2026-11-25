@@ -87,3 +87,8 @@ Both apps keep separate private storage, so Pocket 2 needs its own WhatsApp link
 - **Ignore list** (desk tile and inside the routine card): up to 100 numbers Mimi must never touch. Her engine drops the message before any reply, note, priority alert or digest entry, so nothing is sent to that chat and nothing about it reaches you. `/start`, `/urgent` and `/callback` from those numbers are dropped too.
 - Ignoring a number removes it from the priority circle, so the two lists can never contradict each other. Calls are untouched by this list — Call Shield keeps its own rules.
 - The list stays on this phone (app-private preferences) and is re-sent to the chat engine whenever it changes or reconnects.
+
+### Pocket Desk 0.9.3 · Contact rules that survive privacy ids
+- WhatsApp often delivers a direct chat as a **privacy id (LID)** instead of a phone JID. Rules now match both: the raw sender id and the resolved phone number (`routing.mjs` returns `number`), so an ignored or priority number stays ignored on LID chats too.
+- The engine reports each new LID → number pair; the phone stores it in `linkmap.v1` and feeds it back on every reconnect, so the same person is recognised even if WhatsApp omits the alternate id next time.
+- **Fail closed:** while an ignore list exists, a privacy chat whose number cannot be resolved is **not answered at all** — Mimi would rather stay silent than message someone you asked her to ignore. Status shows "Stayed silent: a privacy chat could not be matched to a number." until the mapping is learnt.

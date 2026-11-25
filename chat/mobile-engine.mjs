@@ -16,6 +16,7 @@ export function engine({
   onNote = () => {},
   onDigest = () => {},
   onPriority = () => {},
+  onLink = () => {},
 }) {
   let generation = 0,
     mode = "off",
@@ -28,6 +29,8 @@ export function engine({
     ignore = new Set(),
     digestOn = true,
     pending = [];
+  // Privacy ids (LID) learnt from earlier messages, so rules survive an unanswered alt field.
+  const known = new Map();
   let until = 0,
     alarm,
     language = "en",
@@ -86,14 +89,24 @@ export function engine({
     if (!m || !valid()) return;
     const jid = m.jid,
       sender = jid.split("@")[0],
-      name = jid.endsWith("@lid")
-        ? "private chat " + sender
-        : "+" + sender,
+      learnt = m.number || known.get(sender) || null;
+    if (m.number && jid.endsWith("@lid") && known.get(sender) !== m.number) {
+      known.set(sender, m.number);
+      onLink({ lid: sender, number: m.number });
+    }
+    // Never guess when silence was requested: an unidentifiable chat is not answered.
+    if (!learnt && ignore.size) {
+      report("Stayed silent: a privacy chat could not be matched to a number.");
+      return "unidentified";
+    }
+    // One person may appear as a phone JID or a privacy (LID) JID; rules match either.
+    const ids = learnt && learnt !== sender ? [sender, learnt] : [sender],
+      name = jid.endsWith("@lid") && !learnt ? "private chat " + sender : "+" + (learnt || sender),
       cmd = m.text.toLowerCase();
     // Ignored numbers are a black hole: no reply, no alert, no note, no digest entry.
-    if (ignore.has(sender)) return "ignored";
+    if (ids.some((id) => ignore.has(id))) return "ignored";
     // Priority contacts skip Mimi entirely: the owner is alerted, nobody is auto-replied.
-    if (vip.has(sender)) {
+    if (ids.some((id) => vip.has(id))) {
       if (!prioritySeen.has(m.id)) {
         prioritySeen.add(m.id);
         if (prioritySeen.size > 500) prioritySeen.delete(prioritySeen.values().next().value);
@@ -171,7 +184,7 @@ export function engine({
     },
     connected,
     // Native owns the weekly routine; the engine only needs who may bypass Mimi.
-    configure({ vip: numbers = [], ignore: blocked = [], digest: enabled = true } = {}) {
+    configure({ vip: numbers = [], ignore: blocked = [], digest: enabled = true, mapped = [] } = {}) {
       const clean = (list, cap) =>
         new Set(
           (Array.isArray(list) ? list : [])
@@ -181,6 +194,10 @@ export function engine({
         );
       vip = clean(numbers, 50);
       ignore = clean(blocked, 100);
+      known.clear();
+      for (const pair of Array.isArray(mapped) ? mapped.slice(0, 500) : [])
+        if (Array.isArray(pair) && /^\d{7,15}$/.test(pair[0]) && /^[1-9]\d{6,14}$/.test(pair[1]))
+          known.set(String(pair[0]), String(pair[1]));
       digestOn = enabled !== false;
       return { priority: vip.size, ignored: ignore.size };
     },

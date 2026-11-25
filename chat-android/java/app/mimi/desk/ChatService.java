@@ -156,6 +156,8 @@ public class ChatService extends Service {
           new JSONArray(Vip.numbers(s.p)),
           "ignore",
           new JSONArray(Ignore.numbers(s.p)),
+          "mapped",
+          Links.array(s.p),
           "digest",
           true
         )
@@ -507,6 +509,10 @@ public class ChatService extends Service {
               case "digest":
                 JSONObject summary = event.optJSONObject("value");
                 if (summary != null) digest(summary);
+                break;
+              case "link":
+                JSONObject pair = event.optJSONObject("value");
+                if (pair != null) Links.add(s.p, pair.optString("lid"), pair.optString("number"));
                 break;
               case "priority":
                 JSONObject priority = event.optJSONObject("value");

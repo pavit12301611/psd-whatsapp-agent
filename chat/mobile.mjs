@@ -54,6 +54,7 @@ async function init(config) {
     onNote: (item) => emit("note", item),
     onDigest: (summary) => emit("digest", summary),
     onPriority: (message) => emit("priority", message),
+    onLink: (pair) => emit("link", pair),
   });
   shield = callShield({
     owner,
@@ -177,7 +178,7 @@ input.on("line", (line) => {
     } else if (m.type === "calls" && shield) {
       shield.configure(m.calls);
     } else if (m.type === "routine" && core) {
-      const rules = core.configure({ vip: m.vip, ignore: m.ignore, digest: m.digest });
+      const rules = core.configure({ vip: m.vip, ignore: m.ignore, mapped: m.mapped, digest: m.digest });
       const parts = [];
       if (rules.priority) parts.push(`${rules.priority} priority`);
       if (rules.ignored) parts.push(`${rules.ignored} ignored`);

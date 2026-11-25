@@ -659,3 +659,5 @@ button.world { position:relative; border:0; background:transparent; border-radiu
 .slot.now span::after { content:" · now"; color:#7a5cbe; font-weight:800; font-size:11px; letter-spacing:.04em; text-transform:uppercase; }
 .slot.empty { display:block; color:#8c8497; background:transparent; border:1px dashed #e2dbea; }
 .nextUp { font-size:13.5px; color:#7a5cbe; font-weight:700; margin:6px 0 0; }
+
+.warnLine { background:#fff6e6; border:1px solid #f0d9a8; color:#7a5a15; border-radius:14px; padding:11px 14px; font-size:13px; margin:12px 0 4px; }

@@ -45,7 +45,9 @@ export async function incoming(
   if (tester === "all-direct") {
     if (!phoneJid.test(jid) && !lidJid.test(jid)) return;
   } else if (pn !== tester) return;
-  return { id: k.id, jid, text: text.trim().slice(0, 2000) };
+  // `number` is the resolved phone number even for privacy (LID) chats, so
+  // contact rules match the same person whichever identifier WhatsApp uses.
+  return { id: k.id, jid, number: pn || null, text: text.trim().slice(0, 2000) };
 }
 
 export const signature = "Mimi — Pavit's own AI bot:";

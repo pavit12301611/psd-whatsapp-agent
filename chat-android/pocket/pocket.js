@@ -116,6 +116,8 @@ function renderDesk(s) {
   const tracked = byId("tracked");
   tracked.textContent = s.tracked ? `${s.tracked} tracked today` : "";
   tracked.hidden = !s.tracked;
+  const other = byId("otherApp");
+  other.hidden = !s.otherApp;
   byId("activity").textContent = s.activity || "Engine offline";
   byId("scope").textContent =
     `Audience: ${s.tester ? "test number only" : "direct chats"} · ${s.notes || 0} notes this session`;

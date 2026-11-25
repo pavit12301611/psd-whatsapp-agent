@@ -397,3 +397,69 @@ test("ignored numbers are silent: no reply, no alert, no note and no digest entr
   e.select("off");
   assert.equal(digests.length, 0, "ignored senders never appear in the digest");
 });
+
+test("ignore and priority rules match privacy (LID) chats by resolved phone number", async () => {
+  const out = [], priority = [], digests = [];
+  const e = engine({
+    owner,
+    scope: "all-direct",
+    provider: "test",
+    clock: () => T,
+    onPriority: (p) => priority.push(p),
+    onDigest: (d) => digests.push(d),
+  });
+  e.connected(true);
+  e.configure({ vip: ["919000000002"], ignore: ["919000000001"], digest: true });
+  e.select("busy");
+  const send = (jid, text) => out.push([jid, text]);
+  const lid = (id, alt) => ({
+    key: { id, fromMe: false, remoteJid: "5551234@lid", remoteJidAlt: alt },
+    messageTimestamp: T / 1000,
+    message: { conversation: "hello from a privacy id" },
+  });
+  await e.handle("notify", lid("l1", "919000000001@s.whatsapp.net"), () => null, send);
+  assert.equal(out.length, 0, "ignored person stays silent even on a LID chat");
+  await e.handle("notify", lid("l2", "919000000002@s.whatsapp.net"), () => null, send);
+  assert.equal(out.length, 0, "priority person is never auto-replied");
+  assert.equal(priority.length, 1);
+  assert.match(priority[0].sender, /919000000002/);
+  e.select("off");
+  assert.equal(digests.length, 0);
+});
+
+test("learnt privacy ids keep ignored people silent even without an alt field", async () => {
+  const out = [], links = [];
+  const e = engine({
+    owner,
+    scope: "all-direct",
+    provider: "test",
+    clock: () => T,
+    onLink: (pair) => links.push(pair),
+  });
+  e.connected(true);
+  e.configure({ vip: [], ignore: ["919000000001"], digest: true });
+  e.select("busy");
+  const send = (jid, text) => out.push([jid, text]);
+  const bare = (id) => ({
+    key: { id, fromMe: false, remoteJid: "5551234@lid" },
+    messageTimestamp: T / 1000,
+    message: { conversation: "hi" },
+  });
+  // Unknown identity: fail closed instead of messaging a possibly ignored number.
+  await e.handle("notify", bare("u1"), () => null, send);
+  assert.equal(out.length, 0);
+  // Once the mapping is seen, the same privacy chat is answered normally…
+  await e.handle(
+    "notify",
+    {
+      key: { id: "u2", fromMe: false, remoteJid: "5551234@lid", remoteJidAlt: "919000000009@s.whatsapp.net" },
+      messageTimestamp: T / 1000,
+      message: { conversation: "hello" },
+    },
+    () => null,
+    send,
+  );
+  assert.equal(links.length, 1);
+  assert.deepEqual(links[0], { lid: "5551234", number: "919000000009" });
+  assert.ok(out.length >= 1, "a resolved, non-ignored chat still gets Mimi’s reply");
+});
