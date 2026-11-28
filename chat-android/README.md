@@ -105,3 +105,9 @@ Both apps keep separate private storage, so Pocket 2 needs its own WhatsApp link
 - Alias `mimi`, store/key password `android`, certificate SHA-256 `8D:78:43:7C:60:D8:CF:65:07:4A:7D:4A:E4:A6:CB:92:BA:7B:4D:84:A3:3A:7E:D9:01:C5:6B:E8:34:83:73:BF`.
 - Trade-off, stated plainly: because this repository is public, this key is public too. Anyone could sign an APK Android would treat as an update — they cannot reach your phone or its session, but do not install Mimi APKs from anywhere except this repository's own links. Making the repository private removes that exposure while keeping the same key (no reinstall needed).
 - Rotating the key means a new certificate, so keep this file for the app's lifetime.
+
+### Pocket Desk 0.9.5 · Bunny notification cards and a livelier desk
+- **Custom notification cards.** All three notifications now render a small RemoteViews card (`res/layout/pocket_notification.xml`): the pocket bunny in a lilac bubble, a bold title, the plan line, a footer with today's note count and link state, plus a monospace countdown for the next block. The ongoing card pulses in Mimi's colours (indigo while sleeping, blue while busy, purple otherwise), the digest card is rose, and priority contacts are mint or red when flagged urgent. Every card keeps standard title/text and a big-text style, so a launcher that refuses custom views still shows a readable notification.
+- Actions are now labelled **Pause**, **Routine**, **Stop** with the same behaviour as before.
+- Desk motion: mood changes fire a heart burst and a hop, the headline pops, the status chip breathes and wiggles, taps give a short haptic buzz (10–18 ms, silently skipped if the WebView has no vibrator), and the hero has a slow, soft gradient glow. All of it sits behind `prefers-reduced-motion`.
+- Nothing about the message flow changed: same replies, digests, ignore rules and routine switching.

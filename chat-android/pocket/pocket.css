@@ -661,3 +661,24 @@ button.world { position:relative; border:0; background:transparent; border-radiu
 .nextUp { font-size:13.5px; color:#7a5cbe; font-weight:700; margin:6px 0 0; }
 
 .warnLine { background:#fff6e6; border:1px solid #f0d9a8; color:#7a5a15; border-radius:14px; padding:11px 14px; font-size:13px; margin:12px 0 4px; }
+
+/* ── Extra life: mood bursts, wiggles and a breathing hero ── */
+.hero { position:relative; overflow:hidden; }
+.burst { position:absolute; right:26%; top:22%; width:0; height:0; pointer-events:none; }
+.burst .spark { bottom:0; left:0; }
+@keyframes wiggle { 0%,100% { transform:rotate(0); } 25% { transform:rotate(-2.4deg); } 75% { transform:rotate(2.4deg); } }
+@keyframes heroGlow {
+  0%,100% { background-position:0% 50%; }
+  50% { background-position:100% 50%; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hero {
+    background-image:linear-gradient(115deg,#fdf2f8 0%,#f3ecff 38%,#e9f6f1 70%,#fff6e8 100%);
+    background-size:220% 220%;
+    animation:heroGlow 18s ease-in-out infinite;
+  }
+  #headline.pop { animation:hop .5s var(--spring); }
+  #chip.pulse { animation:breathe 2s ease-in-out infinite, wiggle 3.4s ease-in-out infinite; }
+  .slot.now b { animation:wiggle 2.8s ease-in-out infinite; }
+  .tool:hover .ico, .quick button:hover .icon { animation:bob 1.6s ease-in-out infinite; }
+}

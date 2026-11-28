@@ -49,6 +49,12 @@ const tools = [
   ["ignore", "power", "Ignore list", "Total silence — no reply, no alert, no digest"],
   ["settings", "settings-2", "Account & AI", "Manage your number & provider"],
 ];
+// Tiny taps should feel physical; silently ignored where the WebView has no vibrator.
+const buzz = (ms = 12) => {
+  try {
+    navigator.vibrate?.(ms);
+  } catch {}
+};
 const esc = (value) =>
   String(value ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const icon = (name) =>
@@ -82,6 +88,18 @@ function renderDesk(s) {
       art.classList.remove("react");
       void art.offsetWidth;
       art.classList.add("react");
+      byId("headline").classList.remove("pop");
+      void byId("headline").offsetWidth;
+      byId("headline").classList.add("pop");
+      const burst = byId("burst");
+      burst.innerHTML = "";
+      for (let i = 1; i <= 4; i++) {
+        const heart = document.createElement("span");
+        heart.className = `spark s${i}`;
+        burst.append(heart);
+      }
+      setTimeout(() => (burst.innerHTML = ""), 1000);
+      buzz(18);
     }
     for (const tile of document.querySelectorAll(".tile"))
       tile.setAttribute("aria-pressed", String(tile.dataset.act === mode));
@@ -136,6 +154,7 @@ const petLines = {
 };
 let pets = 0;
 byId("pet").addEventListener("click", () => {
+  buzz(8);
   const mode = previous in petLines ? previous : "off";
   const lines = petLines[mode];
   byId("petLine").textContent = lines[pets++ % lines.length];
@@ -157,6 +176,7 @@ renderDesk({ mode: "off", network: "Offline" });
 document.addEventListener("click", (e) => {
   const action = e.target.closest("[data-act]")?.dataset.act;
   if (!action) return;
+  buzz(10);
   if (onPhone) {
     location.href = `/action/${action}`;
     return;
