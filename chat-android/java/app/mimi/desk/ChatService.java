@@ -57,6 +57,19 @@ public class ChatService extends Service {
   private volatile boolean closed;
   private java.lang.Process child;
   private BufferedWriter pipe;
+  /** Last stderr line, used only to name a missing runtime module. Never shown raw. */
+  private volatile String stderrTail = "";
+
+  private String missingModule() {
+    String tail = stderrTail;
+    if (tail == null || tail.isEmpty()) return "";
+    java.util.regex.Matcher m = java.util.regex.Pattern
+      .compile("Cannot find module ['\"]?([^'\"\\s:]{1,60})")
+      .matcher(tail);
+    if (m.find()) return ": missing " + m.group(1);
+    if (tail.contains("SyntaxError") || tail.contains("ENOENT")) return ": runtime file unreadable";
+    return "";
+  }
   private static final int ID = 71;
 
   public IBinder onBind(Intent i) {
@@ -475,10 +488,16 @@ public class ChatService extends Service {
         );
       }
       // Native/dependency output can contain sensitive session data. Never log or display raw output.
+      // Only a missing runtime module is ever surfaced, so a broken bundle is recognisable.
       new Thread(() -> {
-        try (InputStream err = p.getErrorStream()) {
-          byte[] b = new byte[2048];
-          while (err.read(b) != -1) {}
+        try (
+          BufferedReader err = new BufferedReader(
+            new InputStreamReader(p.getErrorStream(), "UTF-8")
+          )
+        ) {
+          String line;
+          while ((line = err.readLine()) != null)
+            if (line.length() > 0 && line.length() < 400) stderrTail = line;
         } catch (IOException ignored) {}
       }, "Mimi-stderr").start();
       Store s = new Store(this);
@@ -611,7 +630,7 @@ public class ChatService extends Service {
       }
       int exit = p.waitFor();
       if (!closed && !reported) status =
-        "Engine exited (" + exit + "). Reconnect to retry.";
+        "Engine exited (" + exit + ")" + missingModule() + ". Reconnect to retry.";
     } catch (Exception e) {
       if (!closed) status =
         "Could not start chat engine. Check ARM64 support, storage and saved settings.";

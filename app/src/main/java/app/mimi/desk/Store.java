@@ -11,7 +11,7 @@ import javax.crypto.*;
 import javax.crypto.spec.GCMParameterSpec;
 import org.json.*;
 
-final class Store {
+class Store {
 
   static final String DEFAULT_MODEL = "gemini-3.8-live",
     PREFIX = "Mimi call brief:";
@@ -19,6 +19,11 @@ final class Store {
 
   Store(Context c) {
     p = c.getSharedPreferences("desk", 0);
+  }
+
+  /** Tests and tools: a store over an already opened preference file, no Context. */
+  Store(SharedPreferences prefs) {
+    p = prefs;
   }
 
   String get(String k) {

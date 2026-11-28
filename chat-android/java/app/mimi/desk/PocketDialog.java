@@ -16,7 +16,8 @@ final class PocketDialog extends AlertDialog.Builder {
     STUDIO("REPLY STUDIO", 0xfff9e2ed), ACCOUNT("MY ACCOUNT", 0xffdff0f3),
     SHIELD("CALL SHIELD", 0xffdff0e4), INBOX("NOTE NOOK", 0xffffefcf),
     SCHEDULE("WEEKLY ROUTINE", 0xffe4ecfb), INSIGHTS("TIME INSIGHTS", 0xffe2f4ea),
-    CONTACTS("PRIORITY CIRCLE", 0xffffe6d8), CONFIRM("PLEASE CONFIRM", 0xfffbe3e4);
+    CONTACTS("PRIORITY CIRCLE", 0xffffe6d8), CONFIRM("PLEASE CONFIRM", 0xfffbe3e4),
+    BACKUP("BACKUP & RESTORE", 0xffe7eefc);
     final String label;
     final int wash;
     Room(String label, int wash) { this.label = label; this.wash = wash; }

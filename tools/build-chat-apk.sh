@@ -30,14 +30,33 @@ tar -xOf "$TGZ" package/bin/bun > "$B/lib/arm64-v8a/libmimirun.so"; chmod 755 "$
 (cd chat && npm ci --omit=optional --no-audit --no-fund && npm test)
 node --input-type=module -e 'import {away} from "./chat/routing.mjs";console.log(JSON.stringify(Object.fromEntries(["en","hi"].map(l=>[l,Object.fromEntries(["busy","sleeping","driving"].map(m=>[m,away(m,l)]))]))))' > "$B/assets/greetings.json"
 python3 - <<'PY'
+# Every chat/*.mjs ships: a hardcoded list once shipped an engine that could not start
+# on the phone (mobile-engine.mjs imported a module the zip did not contain).
+import re,sys
 from pathlib import Path
 from zipfile import ZipFile,ZIP_DEFLATED
+base=Path('chat'); entries=[]; names=set()
+def add(file):
+    rel=file.relative_to(base).as_posix()
+    if rel not in names: names.add(rel); entries.append((file,rel))
+for file in sorted(base.glob('*.mjs')):
+    if not file.name.endswith('.test.mjs'): add(file)
+add(base/'package.json')
+for file in sorted((base/'node_modules').rglob('*')):
+    if not file.is_file() or file.is_symlink() or '.bin' in file.parts or file.suffix in ('.ts','.map'): continue
+    add(file)
+broken=[]
+for file,rel in entries:
+    if file.suffix!='.mjs': continue
+    for m in re.finditer(r'''(?:from|import)\s*\(?\s*["'](\.[^"']+)["']''',file.read_text(encoding='utf-8',errors='replace')):
+        try: wanted=(file.parent/m.group(1)).resolve().relative_to(base.resolve()).as_posix()
+        except ValueError: broken.append(f'{rel} -> {m.group(1)}'); continue
+        if wanted not in names: broken.append(f'{rel} -> {m.group(1)}')
+if broken: sys.exit('Runtime bundle would break on the phone: '+'; '.join(sorted(set(broken))))
 with ZipFile('build/chat-apk/assets/chat-runtime.zip','w',ZIP_DEFLATED) as z:
-    base=Path('chat')
-    for file in [*(base/name for name in ('mobile.mjs','mobile-engine.mjs','call-shield.mjs','routing.mjs','routine.mjs','providers.mjs','package.json')),*(base/'node_modules').rglob('*')]:
-        if not file.is_file() or file.is_symlink() or '.bin' in file.parts or file.suffix in ('.ts','.map'):continue
-        z.write(file,file.relative_to(base))
+    for file,rel in entries: z.write(file,rel)
     z.write('licenses/Bun-1.4.5.md','licenses/Bun-1.4.5.md')
+print(f'runtime bundle: {len(entries)} files, every local import present')
 PY
 "$BT/aapt" package -f -M "$MANIFEST" -S chat-android/res -A "$B/assets" -I "$JAR" -F "$B/unsigned.apk"
 javac -encoding UTF-8 --release 8 -classpath "$JAR" -d "$B/classes" app/src/main/java/app/mimi/desk/Store.java chat-android/java/app/mimi/desk/*.java

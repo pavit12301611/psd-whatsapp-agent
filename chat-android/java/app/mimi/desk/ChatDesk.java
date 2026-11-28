@@ -193,6 +193,8 @@ public class ChatDesk extends Activity {
       case "family": Family.edit(this); break;
       case "drafts": Drafts.desk(this); break;
       case "lock": Lock.setup(this); break;
+      case "backup": Backup.desk(this); break;
+      case "relink": if (!ChatService.running) relink(); break;
       case "inbox":
         String owner = store.get("chat.owner");
         if (!owner.isEmpty()) new FollowUpDesk(this, owner).show();
@@ -508,11 +510,13 @@ public class ChatDesk extends Activity {
           "plan", routine.planLine(nowMs), "routine", routine.statusLine(nowMs, paused),
           "slots", slots, "nextUp", nextUp, "otherApp", otherApp,
           "drafts", Drafts.count(store.p), "locked", Lock.enabled(store.p),
+          "saved", Backup.numbers(store),
           "tracked", tracked <= 0 ? "" : Insights.duration(tracked), "routineOn", routine.enabled(), "paused", paused,
           "reason", selected.reason.isEmpty() ? "" : (selected.share ? "Shared reason: " : "Private reason: ") + selected.reason,
           "timer", timer, "notes", ChatService.notes, "code", code, "activity", ChatService.status,
           "tester", !"all-direct".equals(store.p.getString("chat.scope", "all-direct")),
-          "canForget", !live && !store.get("chat.owner").isEmpty()).toString();
+          "canForget", !live && !store.get("chat.owner").isEmpty(),
+          "canRelink", !live && !store.get("chat.owner").isEmpty()).toString();
         desk.evaluateJavascript("window.renderDesk && window.renderDesk(" + state + ")", null);
       } catch (org.json.JSONException e) { throw new IllegalStateException(e); }
       // The editor remains accessible while connecting, linked, or offline.
@@ -546,6 +550,12 @@ public class ChatDesk extends Activity {
     store.p.unregisterOnSharedPreferenceChangeListener(prefChange);
     ui.removeCallbacks(tick);
     super.onPause();
+  }
+
+  /** The backup file picker hands its result straight back to Backup. */
+  protected void onActivityResult(int request, int result, Intent data) {
+    super.onActivityResult(request, result, data);
+    Backup.result(this, request, result, data);
   }
 
   void connectOrStop() {
@@ -762,6 +772,27 @@ public class ChatDesk extends Activity {
       for (File x : files) if (!remove(x)) return false;
     }
     return !f.exists() || f.delete();
+  }
+
+  /** A stale pairing is common: clear only the session, keep every list, draft and block. */
+  void relink() {
+    String owner = store.get("chat.owner");
+    if (ChatService.running || !owner.matches("[1-9][0-9]{6,14}")) return;
+    new PocketDialog(this, PocketDialog.Room.CONFIRM)
+      .setTitle("Fresh WhatsApp link?")
+      .setMessage(
+        "This clears only the saved WhatsApp pairing for your number. Your priority, ignore and family numbers, the routine, drafts and time insights stay exactly as they are. Mimi shows a new code when you press Connect WhatsApp."
+      )
+      .setNegativeButton("Cancel", null)
+      .setPositiveButton("Clear link", (d, k) -> {
+        if (!remove(new File(new File(getFilesDir(), "sessions"), owner))) {
+          ChatService.status = "Could not clear the saved pairing.";
+          return;
+        }
+        ChatService.status = "Saved pairing cleared. Press Connect WhatsApp.";
+        refreshSoon();
+      })
+      .show();
   }
 
   void forget() {

@@ -47,6 +47,21 @@ final class FollowUps {
     store.p.edit().putString(rowsKey, Store.enc(list.toString())).apply();
   }
 
+  /** Restores a validated backup: enabled again, rows re-encrypted with this phone's key. */
+  synchronized void restore(JSONArray list) throws Exception {
+    JSONArray clean = new JSONArray();
+    if (list != null) for (int i = 0; i < list.length() && clean.length() < LIMIT; i++) {
+      JSONObject row = list.optJSONObject(i);
+      if (row != null) clean.put(row);
+    }
+    if (clean.length() == 0) {
+      forget();
+      return;
+    }
+    save(clean);
+    store.p.edit().putBoolean(enabledKey, true).apply();
+  }
+
   void add(JSONObject item) throws Exception {
     synchronized (FollowUps.class) {
       if (!enabled() || item == null) return;

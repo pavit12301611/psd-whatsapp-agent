@@ -81,6 +81,10 @@ document.body.insertAdjacentHTML("afterbegin",`<svg class="iconDefs" aria-hidden
   <path d="M9 8V2" />
 </symbol><symbol id="i-zap" viewBox="0 0 24 24">
   <path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z" />
+</symbol><symbol id="i-archive" viewBox="0 0 24 24">
+  <rect width="20" height="5" x="2" y="3" rx="1" />
+  <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />
+  <path d="M10 12h4" />
 </symbol><symbol id="i-mic" viewBox="0 0 24 24">
   <path d="M12 19v3" />
   <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
