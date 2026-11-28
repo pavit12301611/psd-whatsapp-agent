@@ -6,6 +6,8 @@ ROOT=$PWD; BT=${BUILD_TOOLS:-${ANDROID_HOME:-}/build-tools/34.0.0}; JAR=${ANDROI
 mkdir -p "$B"/{assets,classes,dex,lib/arm64-v8a,downloads} releases
 MANIFEST=chat-android/AndroidManifest.xml
 OUT=releases/Mimi-Chat-Desk.apk
+# The project keeps its own keystore so every build updates the installed app in place.
+if [[ -z ${MIMI_KEYSTORE:-} && -f keys/mimi-signing.jks ]]; then MIMI_KEYSTORE=$ROOT/keys/mimi-signing.jks; fi
 K=${MIMI_KEYSTORE:-$HOME/.android/mimi-test.jks}; export MIMI_STORE_PASS=${MIMI_STORE_PASS:-android}
 if [[ ${1:-} == --pocket-preview || ${1:-} == --pocket-next ]]; then
   # A separate app ID keeps the existing install and its private data intact.
@@ -42,7 +44,10 @@ javac -encoding UTF-8 --release 8 -classpath "$JAR" -d "$B/classes" app/src/main
 jar cf "$B/code.jar" -C "$B/classes" .; "$BT/d8" --min-api 28 --lib "$JAR" --output "$B/dex" "$B/code.jar"
 (cd "$B/dex" && zip -q ../unsigned.apk classes.dex); (cd "$B" && zip -q -9 unsigned.apk lib/arm64-v8a/libmimirun.so)
 "$BT/zipalign" -f 4 "$B/unsigned.apk" "$B/aligned.apk"
-if [[ ! -f "$K" ]]; then mkdir -p "$(dirname "$K")"; keytool -genkeypair -keystore "$K" -alias mimi -keyalg RSA -keysize 3072 -validity 3650 -dname 'CN=Mimi Local Build' -storepass:env MIMI_STORE_PASS -keypass:env MIMI_STORE_PASS;fi
+if [[ ! -f "$K" ]]; then
+  echo 'Signing keystore missing. Restore keys/mimi-signing.jks before shipping an update.' >&2
+  exit 1
+fi
 "$BT/apksigner" sign --ks "$K" --ks-pass env:MIMI_STORE_PASS --out "$B/signed.apk" "$B/aligned.apk"
 "$BT/apksigner" verify --verbose --print-certs "$B/signed.apk"
 cert() { "$BT/apksigner" verify --print-certs "$1" | sed -n '/Signer #1 certificate SHA-256 digest:/p'; }

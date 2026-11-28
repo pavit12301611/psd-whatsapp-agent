@@ -1,6 +1,7 @@
 node_modules/
 build/
-*.jks
+# keys/mimi-signing.jks is committed on purpose so updates keep one certificate
+!keys/mimi-signing.jks
 *.keystore
 *.idsig
 

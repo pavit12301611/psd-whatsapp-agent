@@ -99,13 +99,9 @@ Both apps keep separate private storage, so Pocket 2 needs its own WhatsApp link
 - **AI answers directly:** with a Gemini/Groq key saved, Mimi now answers follow-ups with the model instead of waiting for "YES MIMI" (no consent prompt). Toggle with the `ai.direct` preference in Account & AI; without a key the message-taking path is unchanged.
 - **One-off block skip:** tap any block in *Today* to switch it off for today only, or tick "Off today only" / "Off tomorrow only" while editing a block. The weekly pattern is untouched, and skipped days return automatically.
 
-### Signing key, recoverable
-`.mimi/mimi-signing.jks` is the live key for these builds; `keys/mimi-signing.jks.enc` is the same keystore encrypted (AES-256-CBC, PBKDF2, 200k iterations). The passphrase is held by the project owner and is deliberately not in this repository. Restore it in a fresh sandbox with:
+### Signing key, stable by design
+`keys/mimi-signing.jks` is committed so **every build shares one certificate**: Android installs each new APK as a normal update, so the WhatsApp link and all settings survive. `tools/build-chat-apk.sh` picks it up automatically when `MIMI_KEYSTORE` is unset, and refuses to build an update without it.
 
-```
-openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
-  -in keys/mimi-signing.jks.enc -out .mimi/mimi-signing.jks -pass pass:<owner passphrase>
-chmod 600 .mimi/mimi-signing.jks
-```
-
-Using the same keystore keeps Android updates working (no uninstall, no re-link). Never commit the decrypted key.
+- Alias `mimi`, store/key password `android`, certificate SHA-256 `8D:78:43:7C:60:D8:CF:65:07:4A:7D:4A:E4:A6:CB:92:BA:7B:4D:84:A3:3A:7E:D9:01:C5:6B:E8:34:83:73:BF`.
+- Trade-off, stated plainly: because this repository is public, this key is public too. Anyone could sign an APK Android would treat as an update — they cannot reach your phone or its session, but do not install Mimi APKs from anywhere except this repository's own links. Making the repository private removes that exposure while keeping the same key (no reinstall needed).
+- Rotating the key means a new certificate, so keep this file for the app's lifetime.
