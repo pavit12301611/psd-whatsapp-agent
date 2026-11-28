@@ -1,5 +1,6 @@
 import { conversation, incoming } from "./routing.mjs";
 import { digest, urgent } from "./routine.mjs";
+import { local as localTriage, parse as parseTriage } from "./triage.mjs";
 
 // A selection is a new generation. Re-check generation before every send, not
 // just before an async model request: Pause can arrive while a request is in flight.
@@ -25,6 +26,8 @@ export function engine({
   onPriority = () => {},
   onLink = () => {},
   onLocate = () => {},
+  onTriage = () => {},
+  classify = async () => null,
   sendPin = () => {},
   sendText = () => {},
 }) {
@@ -41,6 +44,7 @@ export function engine({
     shareLocation = false,
     direct = true,
     digestOn = true,
+    triageOn = true,
     pending = [];
   const ownerHandled = new Set();
   // Privacy ids (LID) learnt from earlier messages, so rules survive an unanswered alt field.
@@ -94,6 +98,12 @@ export function engine({
     chats.clear();
     return mode;
   }
+  function markOwner(jid) {
+    const id = String(jid || "").split("@")[0];
+    if (!id) return false;
+    ownerHandled.add(id);
+    return true;
+  }
   function connected(value) {
     online = value;
     select("off");
@@ -138,6 +148,31 @@ export function engine({
         report(`Priority message from ${name}.`);
       }
       return "priority";
+    }
+    if (triageOn) {
+      const kind = ids.some((id) => family.has(id)) ? "family" : null;
+      Promise.resolve()
+        .then(async () => {
+          let sorted = null;
+          if (provider !== "test") {
+            try {
+              sorted = parseTriage(await classify(m.text));
+            } catch {
+              sorted = null;
+            }
+          }
+          if (!sorted) sorted = localTriage(m.text, { family: !!kind, reason, language, mode });
+          onTriage({
+            id: m.id,
+            jid,
+            sender: name,
+            text: m.text.slice(0, 400),
+            category: sorted.category,
+            urgent: sorted.urgent,
+            draft: sorted.draft,
+          });
+        })
+        .catch(() => {});
     }
     if (optedOut.has(jid) && cmd !== "/start") return;
     if (cmd === "/start") optedOut.delete(jid);
@@ -210,10 +245,19 @@ export function engine({
     connected,
     /** The owner replied from their own phone: Mimi leaves this chat alone. */
     ownerReplied(jid) {
-      const id = String(jid || "").split("@")[0];
-      if (!id) return false;
-      ownerHandled.add(id);
-      return true;
+      return markOwner(jid);
+    },
+    /** Sends an owner-approved draft from the inbox and marks the chat as handled. */
+    async sendNow(to, text) {
+      const jid = String(to || "");
+      if (!jid) return false;
+      try {
+        await sendText(jid, String(text || "").slice(0, 1000));
+        markOwner(jid);
+        return true;
+      } catch {
+        return false;
+      }
     },
     /** Native answers a location request with fresh coordinates (or an error). */
     async locate(payload = {}) {
@@ -245,7 +289,7 @@ export function engine({
       }
     },
     // Native owns the weekly routine; the engine only needs who may bypass Mimi.
-    configure({ vip: numbers = [], ignore: blocked = [], family: kin = [], location: share = false, direct: aiDirect = true, digest: enabled = true, mapped = [] } = {}) {
+    configure({ vip: numbers = [], ignore: blocked = [], family: kin = [], location: share = false, direct: aiDirect = true, triage: sort = true, digest: enabled = true, mapped = [] } = {}) {
       const clean = (list, cap) =>
         new Set(
           (Array.isArray(list) ? list : [])
@@ -258,6 +302,7 @@ export function engine({
       family = clean(kin, 50);
       shareLocation = share === true;
       direct = aiDirect !== false;
+      triageOn = sort !== false;
       known.clear();
       for (const pair of Array.isArray(mapped) ? mapped.slice(0, 500) : [])
         if (Array.isArray(pair) && /^\d{7,15}$/.test(pair[0]) && /^[1-9]\d{6,14}$/.test(pair[1]))

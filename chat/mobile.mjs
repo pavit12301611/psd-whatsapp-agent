@@ -11,7 +11,7 @@ import pino from "pino";
 import { number } from "./routing.mjs";
 import { engine } from "./mobile-engine.mjs";
 import { callShield } from "./call-shield.mjs";
-import { ai } from "./providers.mjs";
+import { ai, classify } from "./providers.mjs";
 process.umask(0o077);
 const emit = (type, value, until = 0) =>
   process.stdout.write(JSON.stringify({ type, value, until }) + "\n");
@@ -66,6 +66,8 @@ async function init(config) {
       }),
     sendText: (jid, text) => deliver(jid, { text, linkPreview: null }),
     onLocate: (request) => emit("locate", request),
+    onTriage: (item) => emit("triage", item),
+    classify: (text) => classify(provider, config.key, text),
     report: (s) => emit("status", s),
     onExpire: () => {
       emit("mode", "off");
@@ -210,7 +212,7 @@ input.on("line", (line) => {
     } else if (m.type === "calls" && shield) {
       shield.configure(m.calls);
     } else if (m.type === "routine" && core) {
-      const rules = core.configure({ vip: m.vip, ignore: m.ignore, family: m.family, location: m.location, direct: m.direct, mapped: m.mapped, digest: m.digest });
+      const rules = core.configure({ vip: m.vip, ignore: m.ignore, family: m.family, location: m.location, direct: m.direct, triage: m.triage, mapped: m.mapped, digest: m.digest });
       const parts = [];
       if (rules.priority) parts.push(`${rules.priority} priority`);
       if (rules.ignored) parts.push(`${rules.ignored} ignored`);
@@ -220,6 +222,11 @@ input.on("line", (line) => {
           ? `${parts.join(" · ")} contact rules synced.`
           : "Routine synced. Mimi will follow your timetable.",
       );
+    } else if (m.type === "send" && core) {
+      core
+        .sendNow(m.to, m.text)
+        .then((ok) => emit("status", ok ? "Draft sent from your inbox." : "Draft could not be sent."))
+        .catch(() => emit("status", "Draft could not be sent."));
     } else if (m.type === "location" && core) {
       core.locate(m).catch(() => emit("status", "Location could not be sent."));
     } else if (m.type === "mode" && core) {

@@ -538,3 +538,31 @@ test("AI answers directly when the owner enables it, without a YES MIMI round tr
   assert.match(sent.at(-1), /Mimi|Pavit/);
   assert.equal(prompts.length, 1, "the model actually answered the follow-up");
 });
+
+test("every incoming message is triaged with a draft; approved drafts go out and silence Mimi", async () => {
+  const sorted = [], sent = [], digests = [];
+  const e = engine({
+    owner,
+    scope: "all-direct",
+    provider: "test",
+    clock: () => T,
+    onTriage: (item) => sorted.push(item),
+    onDigest: (d) => digests.push(d),
+    sendText: async (jid, text) => sent.push([jid, text]),
+  });
+  e.connected(true);
+  e.select("busy", 0, "hi", "School");
+  const send = (jid, text) => sent.push([jid, text]);
+  await e.handle("notify", msg(b, "t1", "assignment kal submit karna hai, urgent"), () => null, send);
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(sorted.length, 1);
+  assert.equal(sorted[0].jid, b);
+  assert.equal(sorted[0].category, "college");
+  assert.equal(sorted[0].urgent, true);
+  assert.ok(sorted[0].draft.length > 10);
+  assert.equal(await e.sendNow(b, "notes bhej diye, dekh lo"), true);
+  assert.deepEqual(sent.at(-1), [b, "notes bhej diye, dekh lo"]);
+  const before = sent.length;
+  await e.handle("notify", msg(b, "t2", "thanks"), () => null, send);
+  assert.equal(sent.length, before, "after an approved draft Mimi stays out of that chat");
+});

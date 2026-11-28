@@ -115,3 +115,8 @@ Both apps keep separate private storage, so Pocket 2 needs its own WhatsApp link
 - Actions are now labelled **Pause**, **Routine**, **Stop** with the same behaviour as before.
 - Desk motion: mood changes fire a heart burst and a hop, the headline pops, the status chip breathes and wiggles, taps give a short haptic buzz (10–18 ms, silently skipped if the WebView has no vibrator), and the hero has a slow, soft gradient glow. All of it sits behind `prefers-reduced-motion`.
 - Nothing about the message flow changed: same replies, digests, ignore rules and routine switching.
+
+### Pocket Desk 0.9.7 · Reply drafts and an app lock
+- **Reply drafts** (`Drafts`): every incoming direct message is sorted into family / friend / college / work / spam plus an urgency flag, and Mimi writes a ready-to-send reply. With a Gemini/Groq key the model does the sorting and drafting (`chat/triage.mjs` validates its JSON: known category, bounded 240-character draft); without a key a local rule set and the current block's reason produce the draft. Nothing is sent on its own — you edit and press **Send** in the drafts desk, or dismiss it. Sending marks that chat as owner-handled, so Mimi stops replying there for the rest of the window. Up to 60 drafts are kept on the phone.
+- **App lock** (`Lock`): a 4–8 digit PIN (salted SHA-256, never stored in clear) plus optional fingerprint via `BiometricPrompt`. The gate covers the whole app on launch and again after a minute in the background. Forget-PIN note is shown, since the only recovery is clearing app data.
+- Desk now shows `notes · drafts · locked` in the connection line, with tools for **Reply drafts** and **App lock**.

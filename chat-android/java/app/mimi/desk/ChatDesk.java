@@ -152,6 +152,7 @@ public class ChatDesk extends Activity {
     });
     setContentView(desk);
     desk.loadUrl(HOME);
+    if (Lock.enabled(store.p)) Lock.gate(this, this::unlocked);
     if (getIntent().getBooleanExtra("openRoutine", false)) desk.postDelayed(() ->
       RoutineDesk.show(this), 700);
     if (getIntent().getBooleanExtra("openInbox", false)) desk.postDelayed(() -> {
@@ -159,6 +160,13 @@ public class ChatDesk extends Activity {
       if (!owner.isEmpty()) new FollowUpDesk(this, owner).show();
     }, 700);
   }
+
+  void unlocked() {
+    setContentView(desk);
+    refreshSoon();
+  }
+
+  long pausedAt;
 
   void deskAction(String action) {
     switch (action) {
@@ -183,6 +191,8 @@ public class ChatDesk extends Activity {
       case "vip": Vip.edit(this); break;
       case "ignore": Ignore.edit(this); break;
       case "family": Family.edit(this); break;
+      case "drafts": Drafts.desk(this); break;
+      case "lock": Lock.setup(this); break;
       case "inbox":
         String owner = store.get("chat.owner");
         if (!owner.isEmpty()) new FollowUpDesk(this, owner).show();
@@ -497,6 +507,7 @@ public class ChatDesk extends Activity {
         String state = Store.obj("mode", m, "network", linked ? "Linked" : live ? "Connecting" : "Offline",
           "plan", routine.planLine(nowMs), "routine", routine.statusLine(nowMs, paused),
           "slots", slots, "nextUp", nextUp, "otherApp", otherApp,
+          "drafts", Drafts.count(store.p), "locked", Lock.enabled(store.p),
           "tracked", tracked <= 0 ? "" : Insights.duration(tracked), "routineOn", routine.enabled(), "paused", paused,
           "reason", selected.reason.isEmpty() ? "" : (selected.share ? "Shared reason: " : "Private reason: ") + selected.reason,
           "timer", timer, "notes", ChatService.notes, "code", code, "activity", ChatService.status,
@@ -521,12 +532,16 @@ public class ChatDesk extends Activity {
 
   protected void onResume() {
     super.onResume();
+    if (Lock.enabled(store.p) && pausedAt > 0 && System.currentTimeMillis() - pausedAt > 60000)
+      Lock.gate(this, this::unlocked);
+    pausedAt = 0;
     ChatService.observer = updateDesk;
     store.p.registerOnSharedPreferenceChangeListener(prefChange);
     refreshSoon();
   }
 
   protected void onPause() {
+    pausedAt = System.currentTimeMillis();
     if (ChatService.observer == updateDesk) ChatService.observer = null;
     store.p.unregisterOnSharedPreferenceChangeListener(prefChange);
     ui.removeCallbacks(tick);
@@ -767,6 +782,7 @@ public class ChatDesk extends Activity {
         Availability.forget(store.p, owner);
         new FollowUps(store, owner).forget();
         store.p.edit().remove(Routine.KEY).remove(Routine.PAUSED).remove(Vip.KEY).remove(Ignore.KEY).remove(Family.KEY).remove(Family.SHARE).remove(Links.KEY).remove(TimeLog.KEY).apply();
+        Drafts.clear(store.p);
         store.p
           .edit()
           .remove(CallRules.key(owner))

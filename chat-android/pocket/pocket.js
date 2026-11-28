@@ -45,8 +45,10 @@ const tools = [
     "Follow-up inbox",
     "Review callbacks & urgent notes",
   ],
+  ["drafts", "notebook-text", "Reply drafts", "AI-sorted messages with a reply ready"],
   ["family", "users", "Family & location", "Send your pin when family asks"],
   ["ignore", "power", "Ignore list", "Total silence — no reply, no alert, no digest"],
+  ["lock", "key-round", "App lock", "PIN or fingerprint before Mimi opens"],
   ["settings", "settings-2", "Account & AI", "Manage your number & provider"],
 ];
 // Tiny taps should feel physical; silently ignored where the WebView has no vibrator.
@@ -139,7 +141,7 @@ function renderDesk(s) {
   other.hidden = !s.otherApp;
   byId("activity").textContent = s.activity || "Engine offline";
   byId("scope").textContent =
-    `Audience: ${s.tester ? "test number only" : "direct chats"} · ${s.notes || 0} notes this session`;
+    `Audience: ${s.tester ? "test number only" : "direct chats"} · ${s.notes || 0} notes · ${s.drafts || 0} drafts · ${s.locked ? "locked" : "unlocked"}`;
   byId("pair").textContent = s.code || "";
   byId("forget").hidden = !s.canForget;
   byId("link").textContent =

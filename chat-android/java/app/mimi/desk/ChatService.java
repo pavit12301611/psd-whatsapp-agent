@@ -197,6 +197,8 @@ public class ChatService extends Service {
           Family.sharing(s.p),
           "direct",
           s.p.getBoolean("ai.direct", true),
+          "triage",
+          s.p.getBoolean("triage.ai", true),
           "mapped",
           Links.array(s.p),
           "digest",
@@ -348,6 +350,17 @@ public class ChatService extends Service {
       } catch (Exception e) {
         status = "Cannot update priority rules; agent stopped.";
         stopSelf();
+      }
+    } else if ("draft".equals(action) && linked) {
+      try {
+        String to = intent.getStringExtra("to"), text = intent.getStringExtra("text");
+        if (to != null && text != null && !text.trim().isEmpty()) {
+          write(Store.obj("type", "send", "to", to, "text", text.trim()));
+          Drafts.remove(new Store(this).p, intent.getStringExtra("id"));
+          status = "Draft sent.";
+        }
+      } catch (Exception e) {
+        status = "Draft could not be sent.";
       }
     } else if ("routine".equals(action)) {
       try {
@@ -548,6 +561,10 @@ public class ChatService extends Service {
               case "digest":
                 JSONObject summary = event.optJSONObject("value");
                 if (summary != null) digest(summary);
+                break;
+              case "triage":
+                JSONObject triaged = event.optJSONObject("value");
+                if (triaged != null) Drafts.add(new Store(this).p, triaged);
                 break;
               case "locate":
                 JSONObject request = event.optJSONObject("value");
