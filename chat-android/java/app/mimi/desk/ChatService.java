@@ -108,7 +108,7 @@ public class ChatService extends Service {
     );
   }
 
-  /** A block ended: hand back what arrived, once. */
+  /** A block ended: hand back what arrived, once. Standard notification on purpose. */
   private void digest(JSONObject summary) {
     String counts = summary.optString("text", "Messages waiting");
     StringBuilder body = new StringBuilder();
@@ -121,25 +121,21 @@ public class ChatService extends Service {
       if (body.length() > 320) break;
     }
     String text = body.length() == 0 ? "Open Mimi to see your notes." : body.toString();
-    Notification n = PocketNotification.build(
-      this,
-      "mimi-digest",
-      "Mimi · " + counts,
-      text,
-      summary.optInt("urgent", 0) > 0
-        ? summary.optInt("urgent") + " flagged urgent · tap to open notes"
-        : "tap to open your notes",
-      0,
-      PocketNotification.ROSE,
-      PendingIntent.getActivity(
-        this,
-        4,
-        new Intent(this, ChatDesk.class).putExtra("openInbox", true),
-        PendingIntent.FLAG_IMMUTABLE
-      ),
-      false,
-      null
-    );
+    Notification n = new Notification.Builder(this, "mimi-digest")
+      .setSmallIcon(getResources().getIdentifier("pocket_note", "drawable", getPackageName()))
+      .setContentTitle("Mimi · " + counts)
+      .setContentText(text)
+      .setStyle(new Notification.BigTextStyle().bigText(text))
+      .setAutoCancel(true)
+      .setContentIntent(
+        PendingIntent.getActivity(
+          this,
+          4,
+          new Intent(this, ChatDesk.class).putExtra("openInbox", true),
+          PendingIntent.FLAG_IMMUTABLE
+        )
+      )
+      .build();
     getSystemService(NotificationManager.class).notify(72, n);
     status = counts + ". Tap the notification for the summary.";
   }
@@ -149,18 +145,14 @@ public class ChatService extends Service {
     String sender = message.optString("sender", "Priority contact");
     String text = message.optString("text", "");
     boolean urgent = message.optBoolean("urgent");
-    Notification n = PocketNotification.build(
-      this,
-      "mimi-priority",
-      (urgent ? "Urgent · " : "Priority · ") + sender,
-      text,
-      urgent ? "flagged urgent · Mimi stayed quiet" : "priority contact · Mimi stayed quiet",
-      0,
-      urgent ? PocketNotification.RED : PocketNotification.MINT,
-      openDesk(),
-      false,
-      null
-    );
+    Notification n = new Notification.Builder(this, "mimi-priority")
+      .setSmallIcon(getResources().getIdentifier("pocket_note", "drawable", getPackageName()))
+      .setContentTitle((urgent ? "Urgent · " : "Priority · ") + sender)
+      .setContentText(text)
+      .setStyle(new Notification.BigTextStyle().bigText(text))
+      .setAutoCancel(true)
+      .setContentIntent(openDesk())
+      .build();
     getSystemService(NotificationManager.class).notify(73, n);
     status = (urgent ? "Urgent message from " : "Priority message from ") + sender + ".";
   }
@@ -287,41 +279,43 @@ public class ChatService extends Service {
     Routine.Slot live = configured && routine.enabled() ? routine.active(now) : null,
       next = configured ? routine.next(now) : null;
     String nextLine = next == null
-      ? (configured ? "No more blocks today" : "Add a routine to plan the day")
-      : "Next · " + next.name + " " + when(next, now);
-    String title = !mode.equals("off") && live != null
-      ? "Mimi · " + live.name
-      : mode.equals("off") ? "Mimi · taking a nap" : "Mimi · " + mode;
+      ? (configured ? "No blocks left today" : "Add a routine to plan the day")
+      : "Next: " + next.name + " " + when(next, now);
+    String title = "Mimi · " + (
+      !mode.equals("off") && live != null ? live.name
+        : mode.equals("busy") ? "Focus"
+        : mode.equals("sleeping") ? "Sleeping"
+        : mode.equals("driving") ? "Driving" : "Free"
+    );
     String text;
     if (paused && configured) text = "Routine paused · " + nextLine;
     else if (live != null && !mode.equals("off")) text = live.name + " till " + live.endText + " · " + nextLine;
-    else if (connected()) text = nextLine;
-    else text = "Connecting… " + nextLine;
-    String foot = (notes > 0 ? notes + (notes == 1 ? " note" : " notes") : "quiet") +
-      " · " + (connected() ? "linked" : "offline");
-    long countdown = 0;
-    if (mode.equals("sleeping") && sleepUntil > 0) countdown = sleepUntil;
-    else if (next != null && next.start > now && next.start - now < 86400000L) countdown = next.start;
-    java.util.List<Notification.Action> actions = new java.util.ArrayList<Notification.Action>();
-    if (!mode.equals("off")) actions.add(
-      PocketNotification.action(
-        "Pause",
+    else if (!connected()) text = "Connecting… " + nextLine;
+    else text = nextLine;
+    Notification.Builder builder = new Notification.Builder(this, "mimi-chat")
+      .setSmallIcon(getResources().getIdentifier("pocket_note", "drawable", getPackageName()))
+      .setContentTitle(title)
+      .setContentText(text)
+      .setStyle(new Notification.BigTextStyle().bigText(text))
+      .setContentIntent(open)
+      .setOngoing(true)
+      .setShowWhen(false);
+    if (!mode.equals("off")) builder.addAction(
+      new Notification.Action.Builder(
+        null,
+        "Pause replies",
         PendingIntent.getService(
           this,
           2,
           new Intent(this, ChatService.class).setAction("mode").putExtra("value", "off"),
           PendingIntent.FLAG_IMMUTABLE
         )
-      )
+      ).build()
     );
-    actions.add(PocketNotification.action("Routine", setup));
-    actions.add(PocketNotification.action("Stop", stop));
-    int accent = mode.equals("sleeping") ? PocketNotification.INDIGO
-      : mode.equals("busy") ? PocketNotification.BLUE
-      : live != null ? PocketNotification.PURPLE : PocketNotification.PURPLE;
-    return PocketNotification.build(
-      this, "mimi-chat", title, text, foot, countdown, accent, open, true, actions
-    );
+    builder.addAction(new Notification.Action.Builder(null, "Routine", setup).build());
+    return builder
+      .addAction(new Notification.Action.Builder(null, "Stop agent", stop).build())
+      .build();
   }
 
   private boolean connected() {
