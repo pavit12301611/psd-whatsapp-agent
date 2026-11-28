@@ -65,10 +65,23 @@ final class RoutineDesk {
     });
     a.gap(panel, 12);
 
-    a.text(panel, "TODAY", 11, a.purple, true);
-    List<Routine.Slot> today = routine.today(now);
+    a.text(panel, "TODAY · tap to switch one block off for today only", 11, a.purple, true);
+    String todayKey = Routine.date(Calendar.getInstance());
+    List<Routine.Slot> today = routine.todayAll(now);
     if (today.isEmpty()) a.text(panel, "Nothing scheduled — Mimi stays off unless you pick a mode.", 13, a.muted, false);
-    for (Routine.Slot slot : today) a.text(panel, slot.startText + "–" + slot.endText + "  ·  " + slot.name, 14, a.ink, false);
+    for (final Routine.Slot slot : today) {
+      final boolean off = routine.blockSkipped(slot.id, todayKey);
+      a.button(
+        panel,
+        (off ? "✕ " : "• ") + slot.startText + "–" + slot.endText + "  ·  " + slot.name + (off ? "  (off today)" : ""),
+        () -> {
+          routine.skipBlock(slot.id, todayKey, !off);
+          routine.save(s.p);
+          nudge(a);
+          show(a);
+        }
+      );
+    }
     a.gap(panel, 12);
     a.text(panel, "BLOCKS", 11, a.purple, true);
     if (routine.blocks().length() == 0)
@@ -221,6 +234,36 @@ final class RoutineDesk {
     reason.setHint("School mein hoon, 2 baje ke baad free");
     reason.setText(fresh ? "" : existing.optString("reason"));
     panel.addView(reason);
+
+    final CheckBox offToday = new CheckBox(a), offTomorrow = new CheckBox(a);
+    if (!fresh) {
+      Calendar cal = Calendar.getInstance();
+      final String todayKey = Routine.date(cal);
+      cal.add(Calendar.DAY_OF_MONTH, 1);
+      final String tomorrowKey = Routine.date(cal);
+      offToday.setText("Off today only");
+      offToday.setTextColor(a.ink);
+      offToday.setChecked(routine.blockSkipped(id[0], todayKey));
+      offTomorrow.setText("Off tomorrow only");
+      offTomorrow.setTextColor(a.ink);
+      offTomorrow.setChecked(routine.blockSkipped(id[0], tomorrowKey));
+      panel.addView(offToday);
+      panel.addView(offTomorrow);
+      a.text(panel, "The weekly plan stays as it is; only that day skips this block.", 12, a.muted, false);
+      final String t1 = todayKey, t2 = tomorrowKey;
+      offToday.setOnCheckedChangeListener((v, on) -> {
+        Routine r = Routine.get(a.store.p);
+        r.skipBlock(id[0], t1, on);
+        r.save(a.store.p);
+        nudge(a);
+      });
+      offTomorrow.setOnCheckedChangeListener((v, on) -> {
+        Routine r = Routine.get(a.store.p);
+        r.skipBlock(id[0], t2, on);
+        r.save(a.store.p);
+        nudge(a);
+      });
+    }
 
     a.text(panel, "Greeting language", 13, a.muted, true);
     final Spinner lang = PocketDialog.menu(a);

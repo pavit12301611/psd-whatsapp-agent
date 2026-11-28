@@ -89,6 +89,16 @@ public class ChatService extends Service {
     channels.createNotificationChannel(priority);
   }
 
+  private void enterForeground() {
+    Notification n = notification();
+    if (Build.VERSION.SDK_INT >= 29) {
+      int type = android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING;
+      if (Family.sharing(new Store(this).p) && Locator.allowed(this))
+        type |= android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION;
+      startForeground(ID, n, type);
+    } else startForeground(ID, n);
+  }
+
   private PendingIntent openDesk() {
     return PendingIntent.getActivity(
       this,
@@ -145,6 +155,30 @@ public class ChatService extends Service {
     status = (message.optBoolean("urgent") ? "Urgent message from " : "Priority message from ") + sender + ".";
   }
 
+  /** Answers the engine's location request with the newest fix this phone already has. */
+  private void sendLocation(JSONObject request) {
+    JSONObject fix = Locator.last(this);
+    try {
+      write(
+        Store.obj(
+          "type", "location",
+          "to", request.optString("to"),
+          "live", request.optBoolean("live", false),
+          "seq", request.optInt("seq", 0),
+          "lat", fix == null ? 0d : fix.optDouble("lat", 0d),
+          "lng", fix == null ? 0d : fix.optDouble("lng", 0d),
+          "accuracy", fix == null ? 0d : fix.optDouble("accuracy", 0d),
+          "error", fix == null
+        )
+      );
+      status = fix == null
+        ? "No location on this phone yet — open Google Maps once, then ask again."
+        : "Sent a location pin to your family.";
+    } catch (Exception e) {
+      status = "Could not answer the location request.";
+    }
+  }
+
   private void sendRoutine() {
     try {
       Store s = new Store(this);
@@ -156,6 +190,12 @@ public class ChatService extends Service {
           new JSONArray(Vip.numbers(s.p)),
           "ignore",
           new JSONArray(Ignore.numbers(s.p)),
+          "family",
+          new JSONArray(Family.numbers(s.p)),
+          "location",
+          Family.sharing(s.p),
+          "direct",
+          s.p.getBoolean("ai.direct", true),
           "mapped",
           Links.array(s.p),
           "digest",
@@ -293,7 +333,7 @@ public class ChatService extends Service {
       code = "";
       mode = "off";
       status = "Preparing chat engine on this phone…";
-      startForeground(ID, notification());
+      enterForeground();
       scheduleRoutine();
       new Thread(this::launch, "Mimi-chat").start();
     } else if ("calls".equals(action) && linked) {
@@ -509,6 +549,10 @@ public class ChatService extends Service {
               case "digest":
                 JSONObject summary = event.optJSONObject("value");
                 if (summary != null) digest(summary);
+                break;
+              case "locate":
+                JSONObject request = event.optJSONObject("value");
+                if (request != null) sendLocation(request);
                 break;
               case "link":
                 JSONObject pair = event.optJSONObject("value");

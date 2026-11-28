@@ -41,11 +41,31 @@ async function init(config) {
     provider = config.provider;
   if (!["test", "gemini", "groq"].includes(provider) || owner === scope)
     throw Error("invalid config");
+  const sentIds = new Set();
+  const deliver = async (jid, message) => {
+    if (closing || !sock) throw Error("Paused");
+    const sent = await sock.sendMessage(jid, message);
+    if (sent?.key?.id) {
+      sentIds.add(sent.key.id);
+      if (sentIds.size > 500) sentIds.delete(sentIds.values().next().value);
+    }
+    return sent;
+  };
   core = engine({
     owner,
     scope,
     provider,
     generate: (ts) => ai(provider, config.key, ts),
+    sendPin: (jid, lat, lng, accuracy) =>
+      deliver(jid, {
+        location: {
+          degreesLatitude: lat,
+          degreesLongitude: lng,
+          ...(Number.isFinite(accuracy) ? { accuracyInMeters: Math.round(accuracy) } : {}),
+        },
+      }),
+    sendText: (jid, text) => deliver(jid, { text, linkPreview: null }),
+    onLocate: (request) => emit("locate", request),
     report: (s) => emit("status", s),
     onExpire: () => {
       emit("mode", "off");
@@ -138,6 +158,18 @@ async function init(config) {
           .catch(() => emit("status", "Call handling unavailable."));
     });
     s.ev.on("messages.upsert", ({ type, messages }) => {
+      if (sock !== s || closing) return;
+      for (const raw of messages) {
+        // The owner typed from their own phone: Mimi leaves that chat to them.
+        if (raw?.key?.fromMe) {
+          const jid = raw.key.remoteJid;
+          if (!jid || jid.endsWith("@g.us") || sentIds.has(raw.key.id)) continue;
+          if (jid.split("@")[0] === owner) continue;
+          if (core.ownerReplied(jid))
+            emit("status", "You replied yourself — Mimi stepped aside in that chat.");
+          continue;
+        }
+      }
       if (!core.active || type !== "notify" || sock !== s) return;
       for (const raw of messages) {
         if (pending >= 48) break;
@@ -149,7 +181,7 @@ async function init(config) {
               type,
               raw,
               (jid) => s.signalRepository.lidMapping.getPNForLID(jid),
-              (jid, text) => s.sendMessage(jid, { text, linkPreview: null }),
+              (jid, text) => deliver(jid, { text, linkPreview: null }),
               epoch,
             ),
           )
@@ -178,7 +210,7 @@ input.on("line", (line) => {
     } else if (m.type === "calls" && shield) {
       shield.configure(m.calls);
     } else if (m.type === "routine" && core) {
-      const rules = core.configure({ vip: m.vip, ignore: m.ignore, mapped: m.mapped, digest: m.digest });
+      const rules = core.configure({ vip: m.vip, ignore: m.ignore, family: m.family, location: m.location, direct: m.direct, mapped: m.mapped, digest: m.digest });
       const parts = [];
       if (rules.priority) parts.push(`${rules.priority} priority`);
       if (rules.ignored) parts.push(`${rules.ignored} ignored`);
@@ -188,6 +220,8 @@ input.on("line", (line) => {
           ? `${parts.join(" · ")} contact rules synced.`
           : "Routine synced. Mimi will follow your timetable.",
       );
+    } else if (m.type === "location" && core) {
+      core.locate(m).catch(() => emit("status", "Location could not be sent."));
     } else if (m.type === "mode" && core) {
       shield.configure(m.calls);
       const mode = core.restore(m);

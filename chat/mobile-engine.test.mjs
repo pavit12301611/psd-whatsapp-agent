@@ -332,7 +332,7 @@ test("priority contacts bypass Mimi; everyone else is greeted and lands in one d
     onDigest: (d) => digests.push(d),
   });
   e.connected(true);
-  assert.deepEqual(e.configure({ vip: ["+91 90000 00001", "nope"], digest: true }), { priority: 1, ignored: 0 });
+  assert.deepEqual(e.configure({ vip: ["+91 90000 00001", "nope"], digest: true }), { priority: 1, ignored: 0, family: 0, location: false });
   e.select("busy", 0, "hi", "School · back at 2:00 pm");
   const send = (jid, text) => out.push([jid, text]);
   await e.handle("notify", msg(a, "v1", "emergency, hospital"), () => null, send);
@@ -386,7 +386,7 @@ test("ignored numbers are silent: no reply, no alert, no note and no digest entr
     onNote: (n) => notes.push(n),
   });
   e.connected(true);
-  assert.deepEqual(e.configure({ vip: [a], ignore: [a, "+91 90000 00002"], digest: true }), { priority: 1, ignored: 2 });
+  assert.deepEqual(e.configure({ vip: [a], ignore: [a, "+91 90000 00002"], digest: true }), { priority: 1, ignored: 2, family: 0, location: false });
   e.select("busy", 0, "hi", "School");
   const send = (jid, text) => out.push([jid, text]);
   await e.handle("notify", msg(a, "i1", "urgent hospital jana hai"), () => null, send);
@@ -462,4 +462,79 @@ test("learnt privacy ids keep ignored people silent even without an alt field", 
   assert.equal(links.length, 1);
   assert.deepEqual(links[0], { lid: "5551234", number: "919000000009" });
   assert.ok(out.length >= 1, "a resolved, non-ignored chat still gets Mimi’s reply");
+});
+
+test("family members get Pavit's location on request, and only while sharing is on", async () => {
+  const out = [], asks = [], pins = [];
+  const e = engine({
+    owner,
+    scope: "all-direct",
+    provider: "test",
+    clock: () => T,
+    later: () => 0,
+    cancel: () => {},
+    onLocate: (request) => asks.push(request),
+    sendPin: async (jid, lat, lng) => pins.push([jid, lat, lng]),
+    sendText: async (jid, text) => out.push([jid, text]),
+  });
+  e.connected(true);
+  e.configure({ family: [a], location: false, digest: true });
+  e.select("busy");
+  const send = (jid, text) => out.push([jid, text]);
+  await e.handle("notify", msg(a, "f1", "bhai location bhejo"), () => null, send);
+  assert.equal(asks.length, 0, "sharing off means no coordinates leave the phone");
+  assert.ok(out.length >= 1, "the normal away reply still goes out");
+
+  e.configure({ family: [a], location: true, digest: true });
+  e.select("busy");
+  await e.handle("notify", msg(a, "f2", "where are you? live location"), () => null, send);
+  assert.deepEqual(asks[0], { to: a, live: true, seq: 0 });
+  await e.locate({ to: a, lat: 27.17, lng: 78.04, accuracy: 12, live: true, seq: 0 });
+  assert.deepEqual(pins[0], [a, 27.17, 78.04]);
+  assert.match(out.at(-1)[1], /location/i);
+  // A stranger asking is never answered with coordinates.
+  asks.length = 0;
+  await e.handle("notify", msg(b, "f3", "location bhejo"), () => null, send);
+  assert.equal(asks.length, 0);
+});
+
+test("owner's own reply silences Mimi for that chat until the window ends", async () => {
+  const out = [];
+  const e = engine({ owner, scope: "all-direct", provider: "test", clock: () => T });
+  e.connected(true);
+  e.select("busy");
+  const send = (jid, text) => out.push([jid, text]);
+  await e.handle("notify", msg(a, "o1"), () => null, send);
+  const before = out.length;
+  e.ownerReplied(a);
+  await e.handle("notify", msg(a, "o2"), () => null, send);
+  assert.equal(out.length, before, "Mimi stays out of a chat the owner answered");
+  await e.handle("notify", msg(b, "o3"), () => null, send);
+  assert.ok(out.length > before, "other chats are unaffected");
+  e.select("off");
+  e.select("busy");
+  await e.handle("notify", msg(a, "o4"), () => null, send);
+  assert.ok(out.length > before, "a new window starts fresh");
+});
+
+test("AI answers directly when the owner enables it, without a YES MIMI round trip", async () => {
+  const { conversation } = await import("./routing.mjs");
+  const sent = [];
+  const prompts = [];
+  const reply = conversation({
+    provider: "gemini",
+    mode: "busy",
+    direct: true,
+    generate: async (turns) => {
+      prompts.push(turns.length);
+      return "Main Mimi hoon, Pavit busy hai. Kya message chhodna hai?";
+    },
+    now: () => T,
+  });
+  await reply({ id: "d1", jid: a, text: "hello" }, async (t) => sent.push(t), async () => {});
+  assert.match(sent[0], /is busy/);
+  assert.doesNotMatch(sent[0], /YES MIMI/, "no consent prompt when direct mode is on");
+  await reply({ id: "d2", jid: a, text: "kal milna hai" }, async (t) => sent.push(t), async () => {});
+  assert.match(sent.at(-1), /Mimi|Pavit/);
+  assert.equal(prompts.length, 1, "the model actually answered the follow-up");
 });

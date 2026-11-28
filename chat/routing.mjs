@@ -82,6 +82,7 @@ export function conversation({
   generate,
   language = "en",
   reason = "",
+  direct = false,
   now = Date.now,
 }) {
   const greeting = away(mode, language, reason);
@@ -166,11 +167,12 @@ export function conversation({
     }
     if (!greeted) {
       const optIn =
-        provider === "test"
+        provider === "test" || direct
           ? ""
           : `\n\nFor AI conversation, reply YES MIMI to share future messages with ${provider}. Otherwise I’ll just pass your notes along. /stop pauses replies.`;
       await send(greeting + optIn);
       greeted = true;
+      if (direct && provider !== "test") consent = true;
       return "greeted";
     }
     if (!consent) {

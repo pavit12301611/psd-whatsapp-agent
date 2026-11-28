@@ -3,6 +3,13 @@ import { digest, urgent } from "./routine.mjs";
 
 // A selection is a new generation. Re-check generation before every send, not
 // just before an async model request: Pause can arrive while a request is in flight.
+const LOCATION_ASK =
+  /(location|live\s*location|kahan ho|kaha ho|kahan hai|where are you|loc bhej|apni loc)/i;
+
+export function asksLocation(text) {
+  return LOCATION_ASK.test(String(text || ""));
+}
+
 export function engine({
   owner,
   scope,
@@ -17,6 +24,9 @@ export function engine({
   onDigest = () => {},
   onPriority = () => {},
   onLink = () => {},
+  onLocate = () => {},
+  sendPin = () => {},
+  sendText = () => {},
 }) {
   let generation = 0,
     mode = "off",
@@ -27,8 +37,12 @@ export function engine({
     prioritySeen = new Set();
   let vip = new Set(),
     ignore = new Set(),
+    family = new Set(),
+    shareLocation = false,
+    direct = true,
     digestOn = true,
     pending = [];
+  const ownerHandled = new Set();
   // Privacy ids (LID) learnt from earlier messages, so rules survive an unanswered alt field.
   const known = new Map();
   let until = 0,
@@ -52,7 +66,10 @@ export function engine({
       pending = [];
       if (digestOn) onDigest(summary);
     }
-    if (mode !== "off") for (const id of prioritySeen) prioritySeen.delete(id);
+    if (mode !== "off") {
+      for (const id of prioritySeen) prioritySeen.delete(id);
+      ownerHandled.clear();
+    }
     if (alarm != null) cancel(alarm);
     alarm = undefined;
     until = 0;
@@ -102,9 +119,16 @@ export function engine({
     // One person may appear as a phone JID or a privacy (LID) JID; rules match either.
     const ids = learnt && learnt !== sender ? [sender, learnt] : [sender],
       name = jid.endsWith("@lid") && !learnt ? "private chat " + sender : "+" + (learnt || sender),
-      cmd = m.text.toLowerCase();
+      cmd = m.text.toLowerCase(),
+      // Once the owner answers this person, Mimi steps aside for the rest of the window.
+      handled = () => ids.some((id) => ownerHandled.has(id));
     // Ignored numbers are a black hole: no reply, no alert, no note, no digest entry.
     if (ids.some((id) => ignore.has(id))) return "ignored";
+    if (handled()) return "owner-handled";
+    if (ids.some((id) => family.has(id)) && shareLocation && asksLocation(m.text)) {
+      onLocate({ to: jid, live: /live/i.test(m.text), seq: 0 });
+      return "locating";
+    }
     // Priority contacts skip Mimi entirely: the owner is alerted, nobody is auto-replied.
     if (ids.some((id) => vip.has(id))) {
       if (!prioritySeen.has(m.id)) {
@@ -131,6 +155,7 @@ export function engine({
           generate,
           language,
           reason,
+          direct,
           now: clock,
         }),
       );
@@ -183,8 +208,44 @@ export function engine({
       );
     },
     connected,
+    /** The owner replied from their own phone: Mimi leaves this chat alone. */
+    ownerReplied(jid) {
+      const id = String(jid || "").split("@")[0];
+      if (!id) return false;
+      ownerHandled.add(id);
+      return true;
+    },
+    /** Native answers a location request with fresh coordinates (or an error). */
+    async locate(payload = {}) {
+      const to = String(payload.to || "");
+      if (!to || !available()) return false;
+      const seq = Math.max(0, Math.min(11, Number(payload.seq) || 0));
+      try {
+        if (payload.error || typeof payload.lat !== "number" || typeof payload.lng !== "number") {
+          await sendText(to, "Mimi: location abhi available nahi hai. Pavit ko bolungi.");
+          return false;
+        }
+        await sendPin(to, payload.lat, payload.lng, payload.accuracy);
+        if (seq === 0)
+          await sendText(
+            to,
+            payload.live
+              ? "📍 Ye Pavit ki location hai. Live updates har 30 second mein aayenge."
+              : "📍 Ye Pavit ki current location hai.",
+          );
+        if (payload.live && seq < 11) {
+          const epoch = generation;
+          later(() => {
+            if (epoch === generation && available()) onLocate({ to, live: true, seq: seq + 1 });
+          }, 30000);
+        }
+        return true;
+      } catch {
+        return false;
+      }
+    },
     // Native owns the weekly routine; the engine only needs who may bypass Mimi.
-    configure({ vip: numbers = [], ignore: blocked = [], digest: enabled = true, mapped = [] } = {}) {
+    configure({ vip: numbers = [], ignore: blocked = [], family: kin = [], location: share = false, direct: aiDirect = true, digest: enabled = true, mapped = [] } = {}) {
       const clean = (list, cap) =>
         new Set(
           (Array.isArray(list) ? list : [])
@@ -194,12 +255,15 @@ export function engine({
         );
       vip = clean(numbers, 50);
       ignore = clean(blocked, 100);
+      family = clean(kin, 50);
+      shareLocation = share === true;
+      direct = aiDirect !== false;
       known.clear();
       for (const pair of Array.isArray(mapped) ? mapped.slice(0, 500) : [])
         if (Array.isArray(pair) && /^\d{7,15}$/.test(pair[0]) && /^[1-9]\d{6,14}$/.test(pair[1]))
           known.set(String(pair[0]), String(pair[1]));
       digestOn = enabled !== false;
-      return { priority: vip.size, ignored: ignore.size };
+      return { priority: vip.size, ignored: ignore.size, family: family.size, location: shareLocation };
     },
     handle,
     get generation() {

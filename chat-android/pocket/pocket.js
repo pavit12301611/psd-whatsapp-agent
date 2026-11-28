@@ -45,6 +45,7 @@ const tools = [
     "Follow-up inbox",
     "Review callbacks & urgent notes",
   ],
+  ["family", "users", "Family & location", "Send your pin when family asks"],
   ["ignore", "power", "Ignore list", "Total silence — no reply, no alert, no digest"],
   ["settings", "settings-2", "Account & AI", "Manage your number & provider"],
 ];

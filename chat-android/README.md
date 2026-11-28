@@ -92,3 +92,20 @@ Both apps keep separate private storage, so Pocket 2 needs its own WhatsApp link
 - WhatsApp often delivers a direct chat as a **privacy id (LID)** instead of a phone JID. Rules now match both: the raw sender id and the resolved phone number (`routing.mjs` returns `number`), so an ignored or priority number stays ignored on LID chats too.
 - The engine reports each new LID → number pair; the phone stores it in `linkmap.v1` and feeds it back on every reconnect, so the same person is recognised even if WhatsApp omits the alternate id next time.
 - **Fail closed:** while an ignore list exists, a privacy chat whose number cannot be resolved is **not answered at all** — Mimi would rather stay silent than message someone you asked her to ignore. Status shows "Stayed silent: a privacy chat could not be matched to a number." until the mapping is learnt.
+
+### Pocket Desk 0.9.4 · Family location, owner-first chats, one-off block skips
+- **Family & location** (`Family`): up to 30 numbers. A switch, "Share my location when family asks", gates everything; when on, a family member writing "location bhejo", "live location", "kahan ho" or "where are you" gets a WhatsApp location pin built from the **newest stored fix** on the phone (GPS/network/passive last-known, never a tracking session). "live location" asks get a pin every 30 s for six updates, then stop. Off, missing permission or no stored fix → a short honest text instead. Requires `ACCESS_FINE_LOCATION`/`ACCESS_COARSE_LOCATION` plus the `location` foreground-service type; permission is requested only when the switch is turned on.
+- **Owner-first chats:** when you reply to someone from your own phone during an away window, Mimi stops replying in that chat for the rest of the window (her own sends are ignored, tracked by message id). New window → fresh start.
+- **AI answers directly:** with a Gemini/Groq key saved, Mimi now answers follow-ups with the model instead of waiting for "YES MIMI" (no consent prompt). Toggle with the `ai.direct` preference in Account & AI; without a key the message-taking path is unchanged.
+- **One-off block skip:** tap any block in *Today* to switch it off for today only, or tick "Off today only" / "Off tomorrow only" while editing a block. The weekly pattern is untouched, and skipped days return automatically.
+
+### Signing key, recoverable
+`.mimi/mimi-signing.jks` is the live key for these builds; `keys/mimi-signing.jks.enc` is the same keystore encrypted (AES-256-CBC, PBKDF2, 200k iterations). The passphrase is held by the project owner and is deliberately not in this repository. Restore it in a fresh sandbox with:
+
+```
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
+  -in keys/mimi-signing.jks.enc -out .mimi/mimi-signing.jks -pass pass:<owner passphrase>
+chmod 600 .mimi/mimi-signing.jks
+```
+
+Using the same keystore keeps Android updates working (no uninstall, no re-link). Never commit the decrypted key.

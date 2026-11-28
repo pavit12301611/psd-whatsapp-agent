@@ -182,6 +182,7 @@ public class ChatDesk extends Activity {
       case "stats": Insights.show(this); break;
       case "vip": Vip.edit(this); break;
       case "ignore": Ignore.edit(this); break;
+      case "family": Family.edit(this); break;
       case "inbox":
         String owner = store.get("chat.owner");
         if (!owner.isEmpty()) new FollowUpDesk(this, owner).show();
@@ -544,6 +545,23 @@ public class ChatDesk extends Activity {
     start();
   }
 
+  /** Asks for a coarse/fine fix once; the service only reads the newest stored location. */
+  void requestLocation(Runnable granted, Runnable denied) {
+    if (Build.VERSION.SDK_INT < 23 ||
+        checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+      granted.run();
+      return;
+    }
+    locationGranted = granted;
+    locationDenied = denied;
+    requestPermissions(new String[] {
+      android.Manifest.permission.ACCESS_FINE_LOCATION,
+      android.Manifest.permission.ACCESS_COARSE_LOCATION
+    }, 24);
+  }
+
+  Runnable locationGranted, locationDenied;
+
   void start() {
     if (
       Build.VERSION.SDK_INT >= 33 &&
@@ -559,6 +577,13 @@ public class ChatDesk extends Activity {
   public void onRequestPermissionsResult(int code, String[] p, int[] g) {
     super.onRequestPermissionsResult(code, p, g);
     if (code == 23) launch();
+    if (code == 24) {
+      boolean ok = g.length > 0 && g[0] == android.content.pm.PackageManager.PERMISSION_GRANTED;
+      Runnable action = ok ? locationGranted : locationDenied;
+      locationGranted = null;
+      locationDenied = null;
+      if (action != null) action.run();
+    }
   }
 
   void launch() {
@@ -741,7 +766,7 @@ public class ChatDesk extends Activity {
         }
         Availability.forget(store.p, owner);
         new FollowUps(store, owner).forget();
-        store.p.edit().remove(Routine.KEY).remove(Routine.PAUSED).remove(Vip.KEY).remove(Ignore.KEY).remove(Links.KEY).remove(TimeLog.KEY).apply();
+        store.p.edit().remove(Routine.KEY).remove(Routine.PAUSED).remove(Vip.KEY).remove(Ignore.KEY).remove(Family.KEY).remove(Family.SHARE).remove(Links.KEY).remove(TimeLog.KEY).apply();
         store.p
           .edit()
           .remove(CallRules.key(owner))

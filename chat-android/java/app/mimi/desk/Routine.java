@@ -171,8 +171,55 @@ final class Routine {
     return c.getTimeInMillis();
   }
 
-  /** Blocks that occur on that calendar day; overnight windows end the next morning. */
+  JSONArray blockSkips() {
+    JSONArray a = doc.optJSONArray("blockSkips");
+    return a == null ? new JSONArray() : a;
+  }
+
+  boolean blockSkipped(String id, String date) {
+    if (id == null || id.isEmpty()) return false;
+    JSONArray a = blockSkips();
+    for (int i = 0; i < a.length(); i++) {
+      JSONObject o = a.optJSONObject(i);
+      if (o != null && id.equals(o.optString("id")) && date.equals(o.optString("date"))) return true;
+    }
+    return false;
+  }
+
+  /** Off for one block on one day only; the weekly plan is untouched. */
+  synchronized void skipBlock(String id, String date, boolean off) {
+    if (id == null || id.isEmpty()) return;
+    JSONArray out = new JSONArray();
+    JSONArray old = blockSkips();
+    for (int i = 0; i < old.length(); i++) {
+      JSONObject o = old.optJSONObject(i);
+      if (o == null) continue;
+      if (id.equals(o.optString("id")) && date.equals(o.optString("date"))) continue;
+      out.put(o);
+    }
+    try {
+      if (off) {
+        out.put(Store.obj("id", id, "date", date));
+        while (out.length() > 120) out.remove(0);
+      }
+      doc.put("blockSkips", out);
+    } catch (JSONException ignored) {}
+  }
+
+  /** Today's blocks including ones switched off for today only. */
+  List<Slot> todayAll(long now) {
+    Calendar day = Calendar.getInstance();
+    day.setTimeInMillis(now);
+    midnight(day);
+    return build(day, false);
+  }
+
   List<Slot> slots(Calendar day) {
+    return build(day, true);
+  }
+
+  /** Blocks that occur on that calendar day; overnight windows end the next morning. */
+  private List<Slot> build(Calendar day, boolean honourSkips) {
     List<Slot> out = new ArrayList<Slot>();
     String date = date(day);
     if (skipped(date) && !overridden(date)) return out;
@@ -186,6 +233,7 @@ final class Routine {
       if (!match) continue;
       String id = b.optString("id"), name = b.optString("name"), start = b.optString("start"), end = b.optString("end");
       if (id.isEmpty() || name.isEmpty() || !validTime(start) || !validTime(end) || start.equals(end)) continue;
+      if (honourSkips && blockSkipped(id, date)) continue;
       long from = at(day, start), to = at(day, end);
       if (to <= from) to += 86400000L;
       out.add(new Slot(id, name, b.optString("kind", "custom"), b.optString("reason", ""), fmt(start), fmt(end), from, to));
